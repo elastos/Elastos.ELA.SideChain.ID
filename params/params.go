@@ -126,10 +126,10 @@ var TestNetParams = config.Params{
 	ElaAssetId:         elaAssetId,
 	GenesisBlock:       genesisBlock,
 	PowLimit:           powLimit,
-	PowLimitBits:       0x1e1da5ff,
-	TargetTimespan:     10 * time.Second * 10, // 100 second
-	TargetTimePerBlock: 10 * time.Second,      // 10 second
-	AdjustmentFactor:   4,                     // 25% less, 400% more
+	PowLimitBits:       0x1f0008ff,
+	TargetTimespan:     24 * time.Hour,  // 24 hours
+	TargetTimePerBlock: 2 * time.Minute, // 2  minute
+	AdjustmentFactor:   4,               // 25% less, 400% more
 	CoinbaseMaturity:   100,
 	MinTransactionFee:  100,
 	ExchangeRate:       1,
@@ -141,15 +141,23 @@ var TestNetParams = config.Params{
 // RegNetParams defines the network parameters for the regression test network.
 var RegNetParams = config.Params{
 	Name: "regnet",
-
+	Magic: 201809031,
+	DefaultPort: 22608,
+	SeedList: []string{
+		"did-regtest-001.elastos.org:22608",
+		"did-regtest-002.elastos.org:22608",
+		"did-regtest-003.elastos.org:22608",
+		"did-regtest-004.elastos.org:22608",
+		"did-regtest-005.elastos.org:22608",
+	},
 	Foundation:         testNetFoundation,
 	ElaAssetId:         elaAssetId,
 	GenesisBlock:       genesisBlock,
 	PowLimit:           powLimit,
-	PowLimitBits:       0x207fffff,
-	TargetTimespan:     1 * time.Second * 10, // 10 second
-	TargetTimePerBlock: 1 * time.Second,      // 1 second
-	AdjustmentFactor:   4,                    // 25% less, 400% more
+	PowLimitBits:       0x1f0008ff,
+	TargetTimespan:     24 * time.Hour,  // 10 second
+	TargetTimePerBlock: 2 * time.Minute, // 1 second
+	AdjustmentFactor:   4,               // 25% less, 400% more
 	CoinbaseMaturity:   100,
 	MinTransactionFee:  100,
 	ExchangeRate:       1,

@@ -3,18 +3,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/elastos/Elastos.ELA.SideChain.ID/params"
 	"io/ioutil"
 	"os"
-	"strings"
-
-	"github.com/elastos/Elastos.ELA.SideChain.ID/params"
 
 	"github.com/elastos/Elastos.ELA.Utility/common"
 	"github.com/elastos/Elastos.ELA.Utility/elalog"
 )
 
 const (
-	configFilename        = "./did.conf"
+	configFilename        = "./config.json"
 	defaultLogLevel       = elalog.LevelInfo
 	defaultLogFolderSize  = 2 * elalog.GBSize  // 2 GB
 	defaultMaxLogFileSize = 20 * elalog.MBSize // 20 MB
@@ -30,54 +28,41 @@ var (
 	cfg, loadConfigErr = loadConfig()
 )
 
+type configFile struct {
+	config `json:"Configuration"`
+}
+
 type config struct {
-	// Network settings.
-	ActiveNet   string   `json:"ActiveNet"`
-	Magic       uint32   `json:"Magic"`
-	DefaultPort uint16   `json:"DefaultPort"`
-	SeedList    []string `json:"SeedList"`
-
-	// SPV config
-	SpvConfig *spvconfig `json:"SpvConfig,omitempty"`
-
-	// Chain parameters.
-	Foundation         string  `json:"Foundation"`
-	MinTxFee           int64   `json:"MinTxFee"`
-	ExchangeRate       float64 `json:"ExchangeRate"`
-	DisableTxFilters   bool    `json:"DisableTxFilters"`
-	MinCrossChainTxFee int     `json:"MinCrossChainTxFee"`
-
-	// Mining parameters.
-	Mining    bool   `json:"Mining"`
-	MinerInfo string `json:"MinerInfo"`
-	MinerAddr string `json:"MinerAddr"`
-
+	Magic                      uint32       `json:"Magic"`
+	SpvMagic                   uint32       `json:"SpvMagic"`
+	SeedList                   []string     `json:"SeedList"`
+	SpvSeedList                []string     `json:"SpvSeedList"`
+	MainChainFoundationAddress string       `json:"MainChainFoundationAddress"`
+	Foundation                 string       `json:"FoundationAddress"`
+	ExchangeRate               float64      `json:"ExchangeRate"`
+	DisableTxFilters           bool         `json:"DisableTxFilters"`
+	MinCrossChainTxFee         uint         `json:"MinCrossChainTxFee"`
+	HttpInfoStart              bool         `json:"HttpInfoStart"`
+	HttpInfoPort               uint16       `json:"HttpInfoPort"`
+	HttpRestPort               uint16       `json:"HttpRestPort"`
+	HttpJsonPort               uint16       `json:"HttpJsonPort"`
+	DefaultPort                uint16       `json:"NodePort"`
+	LogLevel                   elalog.Level `json:"PrintLevel"`
+	MaxLogsFolderSize          int64        `json:"MaxLogSize"`
+	MaxPerLogFileSize          int64        `json:"MaxPerLogSize"`
+	powConfig                  `json:"PowConfiguration"`
 	// System settings.
-	LogLevel          elalog.Level `json:"LogLevel"`
-	MaxLogsFolderSize int64        `json:"MaxLogsFolderSize"`
-	MaxPerLogFileSize int64        `json:"MaxPerLogFileSize"`
-	HttpInfoStart     bool         `json:"HttpInfoStart"`
-	HttpInfoPort      uint16       `json:"HttpInfoPort"`
-	HttpRestPort      uint16       `json:"HttpRestPort"`
-	HttpJsonPort      uint16       `json:"HttpJsonPort"`
-	PrintSyncState    bool         `json:"PrintSyncState"`
+	PrintSyncState bool `json:"PrintSyncState"`
 
 	dataDir string
 }
 
-type spvconfig struct {
-	// Magic defines the magic number of the main chain peer-to-peer network.
-	Magic uint32
-
-	// The public seed peers addresses.
-	SeedList []string
-
-	// NodePort is the default port for public peers provide services.
-	DefaultPort uint16
-
-	// The foundation address of the genesis block, which is different between
-	// MainNet, TestNet, RegNet etc.
-	Foundation string
+type powConfig struct {
+	Mining    bool   `json:"AutoMining"`
+	MinerInfo string `json:"MinerInfo"`
+	MinerAddr string `json:"PayToAddr"`
+	ActiveNet string `json:"ActiveNet"`
+	MinTxFee  uint   `json:"MinTxFee"`
 }
 
 func loadConfig() (*config, error) {
@@ -90,36 +75,32 @@ func loadConfig() (*config, error) {
 		HttpRestPort:      30604,
 		HttpJsonPort:      30606,
 		dataDir:           defaultDataDir,
+		PrintSyncState:    true,
 	}
 
 	_, err := os.Stat(configFilename)
 	if os.IsNotExist(err) {
 		return &cfg, nil
 	}
-
+	configFile := configFile{cfg}
 	data, err := ioutil.ReadFile(configFilename)
 	if err != nil {
 		return &cfg, err
 	}
-	if err := json.Unmarshal(data, &cfg); err != nil {
+	if err := json.Unmarshal(data, &configFile); err != nil {
 		return &cfg, err
 	}
-
-	switch strings.ToLower(cfg.ActiveNet) {
-	case "mainnet":
+	cfg = configFile.config
+	switch cfg.ActiveNet {
+	case "MainNet", "":
 		//	nothing to do
-	case "testnet":
+	case "TestNet":
 		activeNetParams = &params.TestNetParams
-		cfg.dataDir = "./data_test"
-
-	case "regnet":
+	case "RegNet":
 		activeNetParams = &params.RegNetParams
-		cfg.dataDir = "./data_regt"
-
 	default:
 		return &cfg, fmt.Errorf("unknown active net type")
 	}
-
 	if cfg.Magic > 0 {
 		activeNetParams.Magic = cfg.Magic
 	}
@@ -137,7 +118,7 @@ func loadConfig() (*config, error) {
 		}
 	}
 	if cfg.MinTxFee > 0 {
-		activeNetParams.MinTransactionFee = cfg.MinTxFee
+		activeNetParams.MinTransactionFee = int64(cfg.MinTxFee)
 	}
 	if cfg.ExchangeRate > 0 {
 		activeNetParams.ExchangeRate = cfg.ExchangeRate
@@ -146,24 +127,17 @@ func loadConfig() (*config, error) {
 		activeNetParams.DisableTxFilters = true
 	}
 	if cfg.MinCrossChainTxFee > 0 {
-		activeNetParams.MinCrossChainTxFee = cfg.MinCrossChainTxFee
+		activeNetParams.MinCrossChainTxFee = int(cfg.MinCrossChainTxFee)
+	}
+	if cfg.SpvMagic > 0 {
+		activeNetParams.SpvParams.Magic = cfg.SpvMagic
 	}
 
-	if cfg.SpvConfig == nil {
-		return &cfg, nil
+	if len(cfg.SpvSeedList) > 0 {
+		activeNetParams.SpvParams.SeedList = cfg.SpvSeedList
 	}
-
-	if cfg.SpvConfig.Magic > 0 {
-		activeNetParams.SpvParams.Magic = cfg.SpvConfig.Magic
-	}
-	if cfg.SpvConfig.DefaultPort > 0 {
-		activeNetParams.SpvParams.DefaultPort = cfg.SpvConfig.DefaultPort
-	}
-	if len(cfg.SpvConfig.SeedList) > 0 {
-		activeNetParams.SpvParams.SeedList = cfg.SpvConfig.SeedList
-	}
-	if len(cfg.SpvConfig.Foundation) > 0 {
-		activeNetParams.SpvParams.Foundation = cfg.SpvConfig.Foundation
+	if len(cfg.MainChainFoundationAddress) > 0 {
+		activeNetParams.SpvParams.Foundation = cfg.MainChainFoundationAddress
 	}
 
 	return &cfg, nil
