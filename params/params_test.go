@@ -26,12 +26,12 @@ func TestParams(t *testing.T) {
 	}
 	t.Log(str)
 
-	addr, err := mainNetFoundation.ToAddress()
+	addr, err := MainNetFoundation.ToAddress()
 	assert.NoError(t, err)
 	assert.Equal(t, "8VYXVxKKSAxkmRrfmGpQR2Kc66XhG6m3ta", addr)
 	t.Log(addr)
 
-	addr, err = testNetFoundation.ToAddress()
+	addr, err = TestNetFoundation.ToAddress()
 	assert.NoError(t, err)
 	assert.Equal(t, "8NRxtbMKScEWzW8gmPDGUZ8LSzm688nkZZ", addr)
 	t.Log(addr)

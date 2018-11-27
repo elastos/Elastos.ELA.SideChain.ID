@@ -20,14 +20,14 @@ var (
 	powLimit = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 255), bigOne)
 
 	// "8VYXVxKKSAxkmRrfmGpQR2Kc66XhG6m3ta"
-	mainNetFoundation = common.Uint168{
+	MainNetFoundation = common.Uint168{
 		0x12, 0x9e, 0x9c, 0xf1, 0xc5, 0xf3, 0x36,
 		0xfc, 0xf3, 0xa6, 0xc9, 0x54, 0x44, 0x4e,
 		0xd4, 0x82, 0xc5, 0xd9, 0x16, 0xe5, 0x06,
 	}
 
 	// "8NRxtbMKScEWzW8gmPDGUZ8LSzm688nkZZ"
-	testNetFoundation = common.Uint168{
+	TestNetFoundation = common.Uint168{
 		0x12, 0x50, 0x96, 0x58, 0xd3, 0x9e, 0x4b,
 		0xde, 0x30, 0x79, 0xe3, 0xf8, 0xde, 0x91,
 		0xf4, 0x9c, 0xaa, 0x97, 0x01, 0x5c, 0x9e,
@@ -37,7 +37,7 @@ var (
 // MainNetSpvParams defines the network parameters for the main network SPV.
 var MainNetSpvParams = config.SpvParams{
 	Magic:      2017001,
-	Foundation: "8VYXVxKKSAxkmRrfmGpQR2Kc66XhG6m3ta",
+	Foundation: MainNetFoundation.String(),
 
 	SeedList: []string{
 		"node-mainnet-002.elastos.org",
@@ -60,7 +60,7 @@ var MainNetSpvParams = config.SpvParams{
 // TestNetSpvParams defines the network parameters for the test network SPV.
 var TestNetSpvParams = config.SpvParams{
 	Magic:      2018001,
-	Foundation: "8ZNizBf4KhhPjeJRGpox6rPcHE5Np6tFx3",
+	Foundation: TestNetFoundation.String(),
 
 	SeedList: []string{
 		"node-testnet-001.elastos.org",
@@ -75,7 +75,7 @@ var TestNetSpvParams = config.SpvParams{
 
 // RegNetSpvParams defines the network parameters for the regression network SPV.
 var RegNetSpvParams = config.SpvParams{
-	Foundation: "8ZNizBf4KhhPjeJRGpox6rPcHE5Np6tFx3",
+	Foundation: TestNetFoundation.String(),
 }
 
 // MainNetParams defines the network parameters for the main network.
@@ -92,7 +92,7 @@ var MainNetParams = config.Params{
 		"did-mainnet-005.elastos.org",
 	},
 
-	Foundation:         mainNetFoundation,
+	Foundation:         MainNetFoundation,
 	ElaAssetId:         elaAssetId,
 	GenesisBlock:       genesisBlock,
 	PowLimit:           powLimit,
@@ -122,14 +122,14 @@ var TestNetParams = config.Params{
 		"did-testnet-005.elastos.org",
 	},
 
-	Foundation:         testNetFoundation,
+	Foundation:         TestNetFoundation,
 	ElaAssetId:         elaAssetId,
 	GenesisBlock:       genesisBlock,
 	PowLimit:           powLimit,
-	PowLimitBits:       0x1e1da5ff,
-	TargetTimespan:     10 * time.Second * 10, // 100 second
-	TargetTimePerBlock: 10 * time.Second,      // 10 second
-	AdjustmentFactor:   4,                     // 25% less, 400% more
+	PowLimitBits:       0x1f0008ff,
+	TargetTimespan:     24 * time.Hour,
+	TargetTimePerBlock: 2 * time.Minute,
+	AdjustmentFactor:   4,
 	CoinbaseMaturity:   100,
 	MinTransactionFee:  100,
 	ExchangeRate:       1,
@@ -142,14 +142,14 @@ var TestNetParams = config.Params{
 var RegNetParams = config.Params{
 	Name: "regnet",
 
-	Foundation:         testNetFoundation,
+	Foundation:         TestNetFoundation,
 	ElaAssetId:         elaAssetId,
 	GenesisBlock:       genesisBlock,
 	PowLimit:           powLimit,
-	PowLimitBits:       0x207fffff,
-	TargetTimespan:     1 * time.Second * 10, // 10 second
-	TargetTimePerBlock: 1 * time.Second,      // 1 second
-	AdjustmentFactor:   4,                    // 25% less, 400% more
+	PowLimitBits:       0x1f0008ff,
+	TargetTimespan:     24 * time.Hour,
+	TargetTimePerBlock: 2 * time.Minute,
+	AdjustmentFactor:   4,
 	CoinbaseMaturity:   100,
 	MinTransactionFee:  100,
 	ExchangeRate:       1,
