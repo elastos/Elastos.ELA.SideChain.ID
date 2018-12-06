@@ -76,7 +76,7 @@ var TestNetSpvParams = config.SpvParams{
 // MainNetParams defines the network parameters for the main network.
 var MainNetParams = config.Params{
 	Name:        "mainnet",
-	Magic:       2018001,
+	Magic:       2017002,
 	DefaultPort: 20608,
 
 	SeedList: []string{

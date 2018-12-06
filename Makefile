@@ -1,11 +1,12 @@
 GOFMT=gofmt
-GC=go build
 VERSION := $(shell git describe --abbrev=4 --dirty --always --tags)
 
-BUILD_NODE_PAR = -ldflags "-X main.Version=$(VERSION) -X 'main.GoVersion=`go version`'" #-race
+BUILD=go build -ldflags "-X main.Version=$(VERSION) -X 'main.GoVersion=`go version`'" #-race
 
 all:
-	$(GC)  $(BUILD_NODE_PAR) -o did config.go log.go main.go
+	$(BUILD) -o did config.go log.go main.go
+	$(BUILD) -o did_wallet_cli config.go did_wallet_cli.go
+	$(BUILD) -o did_wallet config.go did_wallet_log.go did_wallet.go
 
 format:
 	$(GOFMT) -w main.go

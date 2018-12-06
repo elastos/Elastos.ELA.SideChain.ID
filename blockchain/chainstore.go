@@ -15,8 +15,8 @@ type IDChainStore struct {
 	*blockchain.ChainStore
 }
 
-func NewChainStore(genesisBlock *types.Block, dataPath string) (*IDChainStore, error) {
-	chainStore, err := blockchain.NewChainStore(dataPath, genesisBlock)
+func NewChainStore(dataDir string, genesisBlock *types.Block) (*IDChainStore, error) {
+	chainStore, err := blockchain.NewChainStore(dataDir, genesisBlock)
 	if err != nil {
 		return nil, err
 	}

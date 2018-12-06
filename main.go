@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/elastos/Elastos.ELA.SideChain/service/websocket"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -21,6 +20,7 @@ import (
 	"github.com/elastos/Elastos.ELA.SideChain/pow"
 	"github.com/elastos/Elastos.ELA.SideChain/server"
 	"github.com/elastos/Elastos.ELA.SideChain/service"
+	"github.com/elastos/Elastos.ELA.SideChain/service/websocket"
 	"github.com/elastos/Elastos.ELA.SideChain/spv"
 
 	"github.com/elastos/Elastos.ELA.Utility/elalog"
@@ -32,19 +32,6 @@ import (
 
 const (
 	printStateInterval = 10 * time.Second
-
-	DataPath = "elastos_did"
-	DataDir  = "data"
-	ChainDir = "chain"
-	SpvDir   = "spv"
-)
-
-var (
-	// Build version generated when build program.
-	Version string
-
-	// The go source code version at build.
-	GoVersion string
 )
 
 func main() {
@@ -69,8 +56,8 @@ func main() {
 	interrupt := signal.NewInterrupt()
 
 	eladlog.Info("1. BlockChain init")
-	idChainStore, err := bc.NewChainStore(activeNetParams.GenesisBlock,
-		filepath.Join(DataPath, DataDir, ChainDir))
+	idChainStore, err := bc.NewChainStore(filepath.Join(dataDir, "chain"),
+		activeNetParams.GenesisBlock)
 	if err != nil {
 		eladlog.Fatalf("open chain store failed, %s", err)
 		os.Exit(1)
@@ -105,7 +92,7 @@ func main() {
 	}
 
 	spvCfg := spv.Config{
-		DataDir:        filepath.Join(DataPath, DataDir, SpvDir),
+		DataDir:        spvModuleDataDir,
 		Magic:          activeNetParams.SpvParams.Magic,
 		DefaultPort:    activeNetParams.SpvParams.DefaultPort,
 		SeedList:       activeNetParams.SpvParams.SeedList,
@@ -137,7 +124,7 @@ func main() {
 	txPool := mempool.New(&mempoolCfg)
 
 	eladlog.Info("3. Start the P2P networks")
-	server, err := server.New(filepath.Join(DataPath, DataDir), chain, txPool, activeNetParams)
+	server, err := server.New(dataDir, chain, txPool, activeNetParams)
 	if err != nil {
 		eladlog.Fatalf("initialize P2P networks failed, %s", err)
 		os.Exit(1)
@@ -297,9 +284,9 @@ func newRESTfulServer(port uint16, service *service.HttpService) *restful.Server
 
 func newWebSocketServer(port uint16, service *service.HttpService, config *service.Config) *websocket.Server {
 	svrCfg := websocket.Config{
-		Flags: 2,
-		ServePort: port,
-		Service:   service,
+		Flags:      2,
+		ServePort:  port,
+		Service:    service,
 		ServiceCfg: config,
 	}
 	server := websocket.NewServer(&svrCfg)

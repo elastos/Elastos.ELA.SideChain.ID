@@ -3,7 +3,6 @@ package main
 import (
 	"io"
 	"os"
-	"path/filepath"
 
 	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
 	"github.com/elastos/Elastos.ELA.SideChain/mempool"
@@ -21,22 +20,17 @@ import (
 	"github.com/elastos/Elastos.ELA.Utility/p2p/connmgr"
 )
 
-const (
-	defaultMaxPerLogFileSize int64 = elalog.MBSize * 20
-	defaultMaxLogsFolderSize int64 = elalog.GBSize * 2
-)
-
 // configFileWriter returns the configured parameters for log file writer.
 func configFileWriter() (string, int64, int64) {
-	maxPerLogFileSize := defaultMaxPerLogFileSize
-	maxLogsFolderSize := defaultMaxLogsFolderSize
+	maxPerLogFileSize := defaultMaxLogFileSize
+	maxLogsFolderSize := defaultLogsFolderSize
 	if cfg.MaxPerLogFileSize > 0 {
 		maxPerLogFileSize = cfg.MaxPerLogFileSize * elalog.MBSize
 	}
 	if cfg.MaxLogsFolderSize > 0 {
 		maxLogsFolderSize = cfg.MaxLogsFolderSize * elalog.MBSize
 	}
-	return filepath.Join(DataPath, defaultLogDir), maxPerLogFileSize, maxLogsFolderSize
+	return defaultLogDir, maxPerLogFileSize, maxLogsFolderSize
 }
 
 // log is a logger that is initialized with no output filters.  This
@@ -56,7 +50,7 @@ var (
 	peerlog = backend.Logger("PEER", level)
 	minrlog = backend.Logger("MINR", level)
 	spvslog = backend.Logger("SPVS", level)
-	srvrlog = backend.Logger("SRVR", level)
+	srvrlog = backend.Logger("SRVR", elalog.LevelInfo)
 	httplog = backend.Logger("HTTP", level)
 	rpcslog = backend.Logger("RPCS", level)
 	restlog = backend.Logger("REST", level)

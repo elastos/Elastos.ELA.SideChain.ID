@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/elastos/Elastos.ELA.SideChain.ID/params"
@@ -14,15 +15,25 @@ import (
 	"github.com/elastos/Elastos.ELA.Utility/elalog"
 )
 
-const (
-	ConfigFilename        = "./config.json"
-	defaultLogLevel       = "info"
-	defaultLogsFolderSize = 2 * elalog.GBSize  // 2 GB
-	defaultMaxLogFileSize = 20 * elalog.MBSize // 20 MB
-	defaultLogDir         = "logs"
+var (
+	ConfigFilename              = "./config.json"
+	defaultLogLevel             = "info"
+	defaultLogsFolderSize int64 = 2 * elalog.GBSize  // 2 GB
+	defaultMaxLogFileSize int64 = 20 * elalog.MBSize // 20 MB
+	rootDir                     = "elastos_did"
+	dataDir                     = filepath.Join(rootDir, "data")
+	defaultLogDir               = filepath.Join(rootDir, "logs")
+	spvModuleDataDir            = filepath.Join(dataDir, "spv")
+	didWalletDataDir            = "./data_wallet"
 )
 
 var (
+	// Build version generated when build program.
+	Version string
+
+	// The go source code version at build.
+	GoVersion string
+
 	// Set default active net params.
 	activeNetParams = &params.MainNetParams
 
