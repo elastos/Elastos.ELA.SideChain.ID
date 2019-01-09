@@ -234,6 +234,8 @@ func newJsonRpcServer(port uint16, service *sv.HttpServiceExtend) *jsonrpc.Serve
 	s.RegisterAction("getwithdrawtransactionsbyheight", service.GetWithdrawTransactionsByHeight, "height")
 	s.RegisterAction("getexistdeposittransactions", service.GetExistDepositTransactions)
 	s.RegisterAction("getwithdrawtransaction", service.GetWithdrawTransactionByHash, "txid")
+	s.RegisterAction("getillegalevidencebyheight", service.GetIllegalEvidenceByHeight, "height")
+	s.RegisterAction("checkillegalevidence", service.CheckIllegalEvidence, "evidence")
 	s.RegisterAction("submitsideauxblock", service.SubmitAuxBlock, "blockhash", "auxpow")
 	s.RegisterAction("createauxblock", service.CreateAuxBlock, "paytoaddress")
 	s.RegisterAction("togglemining", service.ToggleMining, "mining")
