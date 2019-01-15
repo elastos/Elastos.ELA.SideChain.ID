@@ -3,7 +3,7 @@ import:
 - package: github.com/golang/crypto
 - package: github.com/golang/sys
 - package: github.com/elastos/Elastos.ELA
-  version: release_v0.2.1
+  version: release_v0.2.2
 - package: github.com/elastos/Elastos.ELA.SPV
   version: release_v0.0.1
 - package: github.com/elastos/Elastos.ELA.Utility
