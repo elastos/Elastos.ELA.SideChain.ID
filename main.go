@@ -129,12 +129,17 @@ func main() {
 		eladlog.Fatalf("BlockChain initialize failed, %s", err)
 		os.Exit(1)
 	}
-	chainCfg.Validator = blockchain.NewValidator(chain)
+	chainCfg.Validator = blockchain.NewValidator(chain, spvService)
 
 	txPool := mempool.New(&mempoolCfg)
 
 	eladlog.Info("3. Start the P2P networks")
-	server, err := server.New(filepath.Join(DataPath, DataDir), chain, txPool, activeNetParams)
+	server, err := server.New(&server.Config{
+		DataDir:     filepath.Join(DataPath, DataDir),
+		Chain:       chain,
+		TxMemPool:   txPool,
+		ChainParams: activeNetParams,
+	})
 	if err != nil {
 		eladlog.Fatalf("initialize P2P networks failed, %s", err)
 		os.Exit(1)
