@@ -135,12 +135,12 @@ argument sample:
 	"method": "getidtxspayloads",
 	"params":{
 		"id":"ifawgWFmZRLXN1JVmqpXcNRurhB1zyHNcf",
-		"getall": false
+		"all": false
 	}
 }
 ```
 
-result sample when getall is false:
+result sample when all is false:
 
 ```json
 {
@@ -180,7 +180,7 @@ result sample when getall is false:
 }
 ```
 
-result sample when getall is true:
+result sample when all is true:
 
 ```json
 {
