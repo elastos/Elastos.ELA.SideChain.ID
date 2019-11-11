@@ -94,6 +94,15 @@ func loadConfig() *configParams {
 		spvNetParams = config.DefaultParams.TestNet()
 		activeNetParams = &params.TestNetParams
 
+		// Mainchain Foundation
+		f, _ := common.Uint168FromAddress("8ZNizBf4KhhPjeJRGpox6rPcHE5Np6tFx3")
+		spvNetParams.Foundation = *f
+        spvNetParams.GenesisBlock = config.GenesisBlock(f)
+
+        // Sidechain Foundation
+        f, _ = common.Uint168FromAddress("EZaTzqhddDiX9oXs1tMXCUGSb283B7e8Tx")
+        activeNetParams.Foundation = *f
+
 	case "regnet", "reg", "r":
 		regNetDefault(cfg)
 		spvNetParams = config.DefaultParams.RegNet()

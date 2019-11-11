@@ -34,7 +34,7 @@ var (
 	}
 
 	// genesisTime indicates the time when ELA genesis block created.
-	genesisTime, _ = time.Parse(time.RFC3339, "2018-06-30T12:00:00Z")
+	genesisTime, _ = time.Parse(time.RFC3339, "2018-11-26T00:00:00Z")
 
 	// genesisHeader represent the block header of the genesis block.
 	genesisHeader = types.Header{
