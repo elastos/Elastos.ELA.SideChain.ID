@@ -132,12 +132,11 @@ results: id transactions' payloads information
 argument sample:
 ```json
 {
-
-	"method": "getidtxspayloads",
-	"params":{
-		"id":"ifawgWFmZRLXN1JVmqpXcNRurhB1zyHNcf",
-		"all": false
-	}
+"method": "getidtxspayloads",
+  "params":{
+  	"id": "ifawgWFmZRLXN1JVmqpXcNRurhB1zyHNcf",
+  	"all": false
+  }
 }
 ```
 

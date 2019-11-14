@@ -136,6 +136,10 @@ func (s *txValidatorTestSuite) TestIDChainStore_CreateDIDTx() {
 	err = s.validator.checkRegisterDID(tx)
 	s.NoError(err)
 
+	//=======
+	//	err2 := s.validator.checkRegisterDID(tx)
+	//	s.NoError(err2)
+	//>>>>>>> RPC: getidtxspayloads remove PayloadInfo
 }
 
 func (s *txValidatorTestSuite) TestGetIDFromUri() {
@@ -168,7 +172,6 @@ func getPayloadCreateDID() *types.PayloadDIDInfo {
 	privateKey1, _ := common.HexStringToBytes(PayloadPrivateKey)
 	sign, _ := crypto.Sign(privateKey1, p.GetData())
 	p.Proof.Signature = base64url.EncodeToString(sign)
-
 	return p
 }
 
