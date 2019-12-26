@@ -17,6 +17,8 @@ import:
   - leveldb/iterator
   - leveldb/opt
   - leveldb/util
+- package: github.com/urfave/cli
+  version: v1.22.0
 testImport:
 - package: github.com/stretchr/testify
   subpackages:
