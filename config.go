@@ -14,9 +14,10 @@ import (
 )
 
 const (
-	configFilename  = "./config.json"
-	defaultLogDir   = "logs"
-	defaultLogLevel = elalog.LevelInfo
+	configFilename        = "./config.json"
+	defaultLogDir         = "logs"
+	defaultLogLevel       = elalog.LevelInfo
+	defaultMongoDBAddress = "mongodb://localhost:27017"
 )
 
 var (
@@ -68,6 +69,7 @@ type configParams struct {
 	InstantBlock       bool
 	PayToAddr          string
 	MinerInfo          string
+	MongoDBAddress     string
 }
 
 // loadConfigFile read configuration parameters through the config.json file.
@@ -150,6 +152,9 @@ func loadConfig() *configParams {
 	}
 	if cfg.InstantBlock {
 		params.InstantBlock(activeNetParams)
+	}
+	if cfg.MongoDBAddress == "" {
+		cfg.MongoDBAddress = defaultMongoDBAddress
 	}
 
 	return cfg

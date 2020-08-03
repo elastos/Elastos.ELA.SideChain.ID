@@ -2,7 +2,10 @@ package blockchain
 
 import (
 	"bytes"
+	"context"
 	"errors"
+	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -14,6 +17,8 @@ import (
 	"github.com/elastos/Elastos.ELA.SideChain/types"
 	"github.com/elastos/Elastos.ELA/common"
 	"github.com/elastos/Elastos.ELA/utils/http"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 const (
@@ -24,9 +29,11 @@ const (
 
 type IDChainStore struct {
 	*blockchain.ChainStore
+
+	mongoDB *mongo.Client
 }
 
-func NewChainStore(genesisBlock *types.Block, dataPath string) (*IDChainStore, error) {
+func NewChainStore(genesisBlock *types.Block, dataPath string, mongoDB *mongo.Client) (*IDChainStore, error) {
 	chainStore, err := blockchain.NewChainStore(dataPath, genesisBlock)
 	if err != nil {
 		return nil, err
@@ -34,12 +41,17 @@ func NewChainStore(genesisBlock *types.Block, dataPath string) (*IDChainStore, e
 
 	store := &IDChainStore{
 		ChainStore: chainStore,
+		mongoDB:    mongoDB,
 	}
 
 	store.RegisterFunctions(true, blockchain.StoreFuncNames.PersistTransactions, store.persistTransactions)
 	store.RegisterFunctions(false, blockchain.StoreFuncNames.RollbackTransactions, store.rollbackTransactions)
 
 	return store, nil
+}
+
+func (c *IDChainStore) initChainStoreWithMongoDB() {
+	// todo migrate the data to MongoDB
 }
 
 func (c *IDChainStore) persistTransactions(batch database.Batch, b *types.Block) error {
@@ -83,8 +95,27 @@ func (c *IDChainStore) persistTransactions(batch database.Batch, b *types.Block)
 				txn, b.GetHeight(), b.GetTimeStamp()); err != nil {
 				return err
 			}
+			if c.mongoDB != nil {
+				if err := c.persistRegisterDIDTransactionWithMongoDB(regPayload); err != nil {
+					return err
+				}
+			}
 		}
 	}
+	return nil
+}
+
+func (c *IDChainStore) persistRegisterDIDTransactionWithMongoDB(payload *id.Operation) error {
+	database := c.mongoDB.Database("did_db")
+	collection := database.Collection("did_collection")
+
+	var result *mongo.InsertOneResult
+	var err error
+	if result, err = collection.InsertOne(context.TODO(), payload); err != nil {
+		return err
+	}
+
+	fmt.Println(result)
 	return nil
 }
 
@@ -134,9 +165,36 @@ func (c *IDChainStore) rollbackTransactions(batch database.Batch, b *types.Block
 			if err := c.rollbackRegisterDIDTx(batch, []byte(id), txn); err != nil {
 				return err
 			}
+			if c.mongoDB != nil {
+				if err := c.rollbackRegisterDIDTransactionWithMongoDB(regPayload); err != nil {
+					return err
+				}
+			}
 		}
 	}
 
+	return nil
+}
+
+func Del(collection *mongo.Collection, m bson.M) {
+	deleteResult, err := collection.DeleteOne(context.Background(), m)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Println("collection.DeleteOne:", deleteResult)
+}
+
+func (c *IDChainStore) rollbackRegisterDIDTransactionWithMongoDB(payload *id.Operation) error {
+	database := c.mongoDB.Database("did_db")
+	collection := database.Collection("did_collection")
+
+	var result *mongo.DeleteResult
+	var err error
+	if result, err = collection.DeleteOne(context.Background(), payload); err != nil {
+		return err
+	}
+
+	fmt.Println(result)
 	return nil
 }
 
