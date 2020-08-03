@@ -2,8 +2,12 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
+	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
@@ -27,6 +31,9 @@ import (
 	"github.com/elastos/Elastos.ELA/utils/http/jsonrpc"
 	"github.com/elastos/Elastos.ELA/utils/http/restful"
 	"github.com/elastos/Elastos.ELA/utils/signal"
+
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const (
@@ -62,9 +69,11 @@ func main() {
 	// listen interrupt signals.
 	interrupt := signal.NewInterrupt()
 
+	client := startMongoDB()
+
 	eladlog.Info("1. BlockChain init")
 	idChainStore, err := bc.NewChainStore(activeNetParams.GenesisBlock,
-		filepath.Join(DataPath, DataDir, ChainDir))
+		filepath.Join(DataPath, DataDir, ChainDir), client)
 	if err != nil {
 		eladlog.Fatalf("open chain store failed, %s", err)
 		os.Exit(1)
@@ -356,4 +365,59 @@ func printSyncState(db *blockchain.ChainStore, server server.Server) {
 		buf.WriteString("]")
 		logger.Info(buf.String())
 	}
+}
+
+func startMongoDB() *mongo.Client {
+	client, err := tryConnectToMongoDB(cfg.MongoDBAddress)
+	if err != nil {
+		if err = createMongoDB() ; err != nil {
+			panic(err)
+		}
+		client, err = tryConnectToMongoDB(cfg.MongoDBAddress)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	return client
+
+}
+
+func tryConnectToMongoDB(mongoDBAddress string) (*mongo.Client, error) {
+	clientOptions := options.Client().ApplyURI(mongoDBAddress)
+	client, err := mongo.Connect(context.TODO(), clientOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	// check the connection
+	err = client.Ping(context.TODO(), nil)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("Connected to MongoDB!")
+
+	return client, nil
+}
+
+func createMongoDB() error {
+	cmd := exec.Command("docker-compose", "-f", "mongodb.yml", "up", "-d")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	err := cmd.Start()
+	if err != nil {
+		return err
+	}
+	log.Printf("Waiting for mongodb to finish...")
+	fmt.Println(cmd.Args)
+	err = cmd.Wait()
+	if err != nil {
+		log.Printf("Mongodb finished with error: %v, stderr:%s", err, stderr.String())
+		return err
+	}
+	fmt.Println(out.String())
+
+	return nil
 }
