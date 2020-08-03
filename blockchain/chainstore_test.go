@@ -54,7 +54,7 @@ func isOperationEqual(operation1, operation2 types.Operation) bool {
 }
 
 func TestIDChainStore_PersistDIDTx(t *testing.T) {
-	idChainStore, err := NewChainStore(params.GenesisBlock, "Chain_UnitTest")
+	idChainStore, err := NewChainStore(params.GenesisBlock, "Chain_UnitTest", nil)
 	if err != nil {
 		os.Exit(1)
 	}

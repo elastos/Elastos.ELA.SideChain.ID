@@ -115,6 +115,7 @@ var MainNetParams = config.Params{
 	ExchangeRate:         1,
 	MinCrossChainTxFee:   10000,
 	CheckPowHeaderHeight: 160340,
+
 }
 
 // TestNetParams defines the network parameters for the test network.

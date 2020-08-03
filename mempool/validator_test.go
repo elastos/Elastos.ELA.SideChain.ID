@@ -30,7 +30,7 @@ type txValidatorTestSuite struct {
 func (s *txValidatorTestSuite) SetupSuite() {
 	idChainStore, err := bc.NewChainStore(params.
 		GenesisBlock,
-		"Chain_UnitTest")
+		"Chain_UnitTest", nil)
 	if err != nil {
 		return
 	}

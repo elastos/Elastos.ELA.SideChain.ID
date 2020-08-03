@@ -9,4 +9,5 @@ require (
 	github.com/elastos/Elastos.ELA.SideChain v0.1.8-0.20200723082447-b46f94544736
 	github.com/stretchr/testify v1.4.0
 	github.com/syndtr/goleveldb v1.0.0
+	go.mongodb.org/mongo-driver v1.3.5 // indirect
 )
