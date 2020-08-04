@@ -27,8 +27,9 @@ import (
 )
 
 const (
-	CheckRegisterDIDFuncName = "checkregisterdid"
-	CheckUpdateDIDFuncName   = "checkupdatedid"
+	CheckRegisterDIDFuncName   = "checkregisterdid"
+	CheckUpdateDIDFuncName     = "checkupdatedid"
+	CheckDeactivateDIDFuncName = "checkdeactivatedid"
 )
 const PrefixCRDID contract.PrefixType = 0x67
 
@@ -61,6 +62,7 @@ func NewValidator(cfg *mempool.Config, store *blockchain.IDChainStore) *mempool.
 	val.RegisterSanityFunc(mempool.FuncNames.CheckTransactionOutput, val.checkTransactionOutput)
 	val.RegisterSanityFunc(mempool.FuncNames.CheckTransactionPayload, val.checkTransactionPayload)
 	val.RegisterSanityFunc(CheckRegisterDIDFuncName, val.checkRegisterDID)
+	val.RegisterSanityFunc(CheckDeactivateDIDFuncName, val.checkDeactivateDID)
 
 	val.RegisterContextFunc(mempool.FuncNames.CheckTransactionSignature, val.checkTransactionSignature)
 	return val.Validator
@@ -82,6 +84,7 @@ func (v *validator) checkTransactionPayload(txn *types.Transaction) error {
 	case *types.PayloadTransferCrossChainAsset:
 	case *id.PayloadRegisterIdentification:
 	case *id.Operation:
+	case *id.DeactivateDIDOptPayload:
 	default:
 		return errors.New("[ID CheckTransactionPayload] [txValidator],invalidate transaction payload type.")
 	}
@@ -273,8 +276,8 @@ func CreateCRIDContractByCode(code []byte) (*contract.Contract, error) {
 	}, nil
 }
 
-func getDIDAddress(publicKey []byte) (string,error) {
-	code , err := getCodeByPubKey(publicKey)
+func getDIDAddress(publicKey []byte) (string, error) {
+	code, err := getCodeByPubKey(publicKey)
 	if err != nil {
 		return "", err
 	}
@@ -294,6 +297,47 @@ func getCIDAdress(publicKey []byte) (string, error) {
 		return "", err
 	}
 	return hash.ToAddress()
+}
+
+func getAuthorizatedPublicKey(proof *id.DIDProofInfo, payloadInfo *id.DIDPayloadInfo) string {
+	proofUriSegment := getUriSegment(proof.VerificationMethod)
+
+	for _, pkInfo := range payloadInfo.PublicKey {
+		if proofUriSegment == getUriSegment(pkInfo.ID) {
+			return pkInfo.PublicKeyBase58
+		}
+	}
+	for _, auth := range payloadInfo.Authorization {
+		switch auth.(type) {
+		case string:
+			keyString := auth.(string)
+			if proofUriSegment == getUriSegment(keyString) {
+				for i := 0; i < len(payloadInfo.PublicKey); i++ {
+					if proofUriSegment == getUriSegment(payloadInfo.PublicKey[i].ID) {
+						return payloadInfo.PublicKey[i].PublicKeyBase58
+					}
+				}
+				return ""
+			}
+		case map[string]interface{}:
+			data, err := json.Marshal(auth)
+			if err != nil {
+				return ""
+			}
+			didPublicKeyInfo := new(id.DIDPublicKeyInfo)
+			err = json.Unmarshal(data, didPublicKeyInfo)
+			if err != nil {
+				return ""
+			}
+			if proofUriSegment == getUriSegment(didPublicKeyInfo.ID) {
+				return didPublicKeyInfo.PublicKeyBase58
+			}
+		default:
+			return ""
+		}
+	}
+
+	return ""
 }
 
 func getPublicKey(proof *id.DIDProofInfo, payloadInfo *id.DIDPayloadInfo) string {
@@ -363,6 +407,11 @@ func (v *validator) checkDIDOperation(header *id.DIDHeaderInfo,
 
 	buf := new(bytes.Buffer)
 	buf.WriteString(did)
+
+	if v.Store.IsDIDDeactivated(did) {
+		return errors.New("DID is deactivated")
+	}
+
 	lastTXData, err := v.Store.GetLastDIDTxData(buf.Bytes())
 
 	dbExist := true
@@ -437,6 +486,61 @@ func (v *validator) checkRegisterDID(txn *types.Transaction) error {
 
 	var success bool
 	success, err = v.VerifyByVM(payloadDidInfo, code, signature)
+	if err != nil {
+		return err
+	}
+	if !success {
+		return errors.New("checkRegisterDID [VM]  Check Sig FALSE")
+	}
+	return nil
+}
+
+func (v *validator) checkDeactivateDID(txn *types.Transaction) error {
+	//payload type check
+	if txn.TxType != id.DeactivateDID {
+		return nil
+	}
+	deactivateDIDOpt, ok := txn.Payload.(*id.DeactivateDIDOptPayload)
+	if !ok {
+		return errors.New("invalid Operation")
+	}
+	targetDIDUri := deactivateDIDOpt.Payload
+	targetDID := v.Store.GetDIDFromUri(targetDIDUri)
+	if targetDID == "" {
+		return errors.New("WRONG DID FORMAT")
+	}
+
+	buf := new(bytes.Buffer)
+	buf.WriteString(targetDID)
+	lastTXData, err := v.Store.GetLastDIDTxData(buf.Bytes())
+	if err != nil {
+		return err
+	}
+
+	//do not deactivage a did who was already deactivate
+	if v.Store.IsDIDDeactivated(targetDID) {
+		return errors.New("DID WAS AREADY DEACTIVE")
+	}
+
+	//get  public key
+	publicKeyBase58 := getAuthorizatedPublicKey(&deactivateDIDOpt.Proof,
+		lastTXData.Operation.PayloadInfo)
+	if publicKeyBase58 == "" {
+		return errors.New("Not find the publickey verificationMethod   ")
+	}
+	//get code
+	//var publicKeyByte []byte
+	publicKeyByte := base58.Decode(publicKeyBase58)
+
+	//var code []byte
+	code, err := getCodeByPubKey(publicKeyByte)
+	if err != nil {
+		return err
+	}
+	signature, _ := base64url.DecodeString(deactivateDIDOpt.Proof.Signature)
+
+	var success bool
+	success, err = v.VerifyByVM(deactivateDIDOpt, code, signature)
 	if err != nil {
 		return err
 	}

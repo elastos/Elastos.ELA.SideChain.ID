@@ -20,6 +20,7 @@ const (
 	IX_DIDTXHash        blockchain.EntryPrefix = 0x95
 	IX_DIDPayload       blockchain.EntryPrefix = 0x96
 	IX_DIDExpiresHeight blockchain.EntryPrefix = 0x97
+	IX_DIDDeactivate    blockchain.EntryPrefix = 0x98
 )
 
 type IDChainStore struct {
@@ -83,8 +84,18 @@ func (c *IDChainStore) persistTransactions(batch database.Batch, b *types.Block)
 				txn, b.GetHeight(), b.GetTimeStamp()); err != nil {
 				return err
 			}
+		case id.DeactivateDID:
+			deactivateDIDOpt := txn.Payload.(*id.DeactivateDIDOptPayload)
+			id := c.GetDIDFromUri(deactivateDIDOpt.Payload)
+			if id == "" {
+				return errors.New("invalid deactivate DID")
+			}
+			if err := c.persistDeactivateDIDTx(batch, []byte(id)); err != nil {
+				return err
+			}
 		}
 	}
+
 	return nil
 }
 
@@ -132,6 +143,16 @@ func (c *IDChainStore) rollbackTransactions(batch database.Batch, b *types.Block
 				return errors.New("invalid regPayload.PayloadInfo.ID")
 			}
 			if err := c.rollbackRegisterDIDTx(batch, []byte(id), txn); err != nil {
+				return err
+			}
+
+		case id.DeactivateDID:
+			deactivateDID := txn.Payload.(*id.DeactivateDIDOptPayload)
+			id := c.GetDIDFromUri(deactivateDID.Payload)
+			if id == "" {
+				return errors.New("invalid regPayload.PayloadInfo.ID")
+			}
+			if err := c.rollbackDeactivateDIDTx(batch, []byte(id), txn); err != nil {
 				return err
 			}
 		}
@@ -218,6 +239,41 @@ func (c *IDChainStore) persistRegisterDIDTx(batch database.Batch,
 	}
 
 	return nil
+}
+
+func (c *IDChainStore) PersistRegisterDIDTx(batch database.Batch,
+	idKey []byte, tx *types.Transaction, blockHeight uint32,
+	blockTimeStamp uint32) error {
+	return c.persistRegisterDIDTx(batch, idKey, tx, blockHeight, blockTimeStamp)
+}
+
+func (c *IDChainStore) persistDeactivateDIDTx(batch database.Batch, idKey []byte) error {
+	key := []byte{byte(IX_DIDDeactivate)}
+	key = append(key, idKey...)
+
+	buf := new(bytes.Buffer)
+	if err := common.WriteVarUint(buf, 1); err != nil {
+		return err
+	}
+	return batch.Put(key, buf.Bytes())
+}
+
+func (c *IDChainStore) PersistDeactivateDIDTx(batch database.Batch, idKey []byte) error {
+	return c.persistDeactivateDIDTx(batch, idKey)
+}
+
+func (c *IDChainStore) IsDIDDeactivated(did string) bool {
+	idKey := new(bytes.Buffer)
+	idKey.WriteString(did)
+
+	key := []byte{byte(IX_DIDDeactivate)}
+	key = append(key, idKey.Bytes()...)
+
+	_, err := c.Get(key)
+	if err != nil {
+		return false
+	}
+	return true
 }
 
 func (c *IDChainStore) persistRegisterDIDExpiresHeight(batch database.Batch,
@@ -408,6 +464,19 @@ func (c *IDChainStore) rollbackRegisterDIDTx(batch database.Batch,
 		return err
 	}
 	return batch.Put(key, buf.Bytes())
+}
+
+func (c *IDChainStore) rollbackDeactivateDIDTx(batch database.Batch,
+	idKey []byte, tx *types.Transaction) error {
+	key := []byte{byte(IX_DIDDeactivate)}
+	key = append(key, idKey...)
+
+	_, err := c.Get(key)
+	if err != nil {
+		return err
+	}
+	batch.Delete(key)
+	return nil
 }
 
 func (c *IDChainStore) persistRegisterDIDPayload(batch database.Batch,

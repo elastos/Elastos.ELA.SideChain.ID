@@ -188,6 +188,13 @@ type Operation struct {
 	PayloadInfo *DIDPayloadInfo
 }
 
+// payload of DID transaction
+type DeactivateDIDOptPayload struct {
+	Header  DIDHeaderInfo `json:"header"`
+	Payload string        `json:"payload"`
+	Proof   DIDProofInfo  `json:"proof"`
+}
+
 type TranasactionData struct {
 	TXID      string    `json:"txid"`
 	Timestamp string    `json:"timestamp"`
@@ -276,5 +283,56 @@ func (p *Operation) GetData() []byte {
 		dataString = p.Header.Specification + p.Header.Operation + p.Payload
 
 	}
+	return []byte(dataString)
+}
+
+func (p *DeactivateDIDOptPayload) Data(version byte) []byte {
+	buf := new(bytes.Buffer)
+	if err := p.Header.Serialize(buf, version); err != nil {
+		return nil
+	}
+	if err := common.WriteVarString(buf, p.Payload); err != nil {
+		return nil
+	}
+	return buf.Bytes()
+}
+
+func (p *DeactivateDIDOptPayload) Serialize(w io.Writer, version byte) error {
+	if err := p.Header.Serialize(w, version); err != nil {
+		return errors.New("[DeactivateDIDOptPayload], Header serialize failed," + err.Error())
+	}
+
+	if err := common.WriteVarString(w, p.Payload); err != nil {
+		return errors.New("[DeactivateDIDOptPayload], Payload serialize failed")
+	}
+
+	if err := p.Proof.Serialize(w, version); err != nil {
+		return errors.New("[DeactivateDIDOptPayload], Proof serialize failed," + err.Error())
+	}
+
+	return nil
+}
+
+func (p *DeactivateDIDOptPayload) Deserialize(r io.Reader, version byte) error {
+	if err := p.Header.Deserialize(r, version); err != nil {
+		return errors.New("[DeactivateDIDOptPayload], Header deserialize failed" + err.Error())
+	}
+
+	payload, err := common.ReadVarString(r)
+	if err != nil {
+		return errors.New("[DeactivateDIDOptPayload], payload deserialize failed")
+	}
+	p.Payload = payload
+
+	if err := p.Proof.Deserialize(r, version); err != nil {
+		return errors.New("[DeactivateDIDOptPayload], Proof deserialize failed," + err.Error())
+	}
+	return nil
+}
+
+func (p *DeactivateDIDOptPayload) GetData() []byte {
+	var dataString string
+	dataString = p.Header.Specification + p.Header.Operation + p.Header.
+		PreviousTxid + p.Payload
 	return []byte(dataString)
 }

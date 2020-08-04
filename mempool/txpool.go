@@ -10,6 +10,7 @@ import (
 )
 
 const SlotRegisterDID = "registerdid"
+const SlotDeactivateDID = "deactivatedid"
 
 func New(cfg *memp.Config) *memp.TxPool {
 	txPool := memp.New(cfg)
@@ -19,6 +20,15 @@ func New(cfg *memp.Config) *memp.TxPool {
 			memp.KeyTypeFuncPair{
 				Type: types.RegisterDID,
 				Func: addRegisterDIDTransactionHash,
+			},
+		),
+	})
+	txPool.AddConflictSlot(&memp.Conflict{
+		Name: SlotDeactivateDID,
+		Slot: memp.NewConflictSlot(memp.Str,
+			memp.KeyTypeFuncPair{
+				Type: types.DeactivateDID,
+				Func: addDeactivateDIDTransactionHash,
 			},
 		),
 	})
@@ -32,4 +42,20 @@ func addRegisterDIDTransactionHash(
 		return nil, errors.New("convert the payload of register did tx failed")
 	}
 	return regPayload.PayloadInfo.ID, nil
+}
+
+//
+func addDeactivateDIDTransactionHash(
+	chain *blockchain.BlockChain, tx *sctype.Transaction) (interface{}, error) {
+	deactivateDIDPayload, ok := tx.Payload.(*types.DeactivateDIDOptPayload)
+	if !ok {
+		return nil, errors.New("convert the payload of DeactivateDIDOpt tx failed")
+	}
+	var did string
+	if types.IsURIHasPrefix(deactivateDIDPayload.Payload) {
+		did = types.GetDIDFromUri(deactivateDIDPayload.Payload)
+	} else {
+		did = deactivateDIDPayload.Payload
+	}
+	return did, nil
 }
