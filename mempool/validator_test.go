@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/btcsuite/btcutil/base58"
@@ -31,6 +32,8 @@ type txValidatorTestSuite struct {
 }
 
 func (s *txValidatorTestSuite) SetupSuite() {
+	os.RemoveAll("Chain_UnitTest")
+
 	idChainStore, err := bc.NewChainStore(params.
 		GenesisBlock,
 		"Chain_UnitTest")
@@ -95,7 +98,13 @@ var didPayloadBytes = []byte(
                        "type":"ECDSAsecp256r1",
                        "controller":"did:elastos:icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN",
                        "publicKeyBase58":"zxt6NyoorFUFMXA8mDBULjnuH3v6iNdZm42PyG4c1YdC"
-                      }
+                      },
+					{
+					   "id": "did:elastos:icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN#master",
+					   "type":"ECDSAsecp256r1",
+					   "controller":"did:elastos:icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN",
+					   "publicKeyBase58":"zNxoZaZLdackZQNMas7sCkPRHZsJ3BtdjEvM2y5gNvKJ"
+				   }
                     ],
         "authentication":["did:elastos:icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN#default",
                           {
@@ -192,6 +201,72 @@ func (s *txValidatorTestSuite) TestIDChainStore_CreateDIDTx() {
 	s.Error(err, "invalid Expires")
 }
 
+func (s *txValidatorTestSuite) TestIDChainStore_DeactivateDIDTx() {
+	didWithPrefix := "did:elastos:iTWqanUovh3zHfnExGaan4SJAXG3DCZC6j"
+	//did := "iTWqanUovh3zHfnExGaan4SJAXG3DCZC6j"
+	did := s.validator.Store.GetDIDFromUri(didWithPrefix)
+	verifDid := "did:elastos:iTWqanUovh3zHfnExGaan4SJAXG3DCZC6j#default"
+
+	txCreateDID := &types2.Transaction{
+		TxType:         types.RegisterDID,
+		PayloadVersion: 0,
+		Payload:        getPayloadCreateDID(),
+		Inputs:         nil,
+		Outputs:        nil,
+		LockTime:       0,
+		Programs:       nil,
+		Fee:            0,
+		FeePerKB:       0,
+	}
+
+	txDeactivate := &types2.Transaction{
+		TxType:         types.DeactivateDID,
+		PayloadVersion: 0,
+		Payload:        getPayloadDeactivateDID(didWithPrefix, verifDid),
+		Inputs:         nil,
+		Outputs:        nil,
+		LockTime:       0,
+		Programs:       nil,
+		Fee:            0,
+		FeePerKB:       0,
+	}
+	//Deactive did  have no
+	err := s.validator.checkDeactivateDID(txDeactivate)
+	s.Error(err, "leveldb: not found")
+
+	batch := s.validator.Store.ChainStore.NewBatch()
+	s.validator.Store.PersistRegisterDIDTx(batch, []byte(did), txCreateDID, 0, 0)
+	batch.Commit()
+
+	err = s.validator.checkDeactivateDID(txDeactivate)
+	s.NoError(err)
+
+	//wrong public key to verify sign
+	verifDid = "did:elastos:icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN#master"
+	txDeactivateWrong := &types2.Transaction{
+		TxType:         types.DeactivateDID,
+		PayloadVersion: 0,
+		Payload:        getPayloadDeactivateDID(didWithPrefix, verifDid),
+		Inputs:         nil,
+		Outputs:        nil,
+		LockTime:       0,
+		Programs:       nil,
+		Fee:            0,
+		FeePerKB:       0,
+	}
+
+	err = s.validator.checkDeactivateDID(txDeactivateWrong)
+	s.Error(err, "[VM] Check Sig FALSE")
+
+	//deactive one deactivated did
+	batch = s.validator.Store.ChainStore.NewBatch()
+	s.validator.Store.PersistDeactivateDIDTx(batch, []byte(did))
+	batch.Commit()
+	err = s.validator.checkDeactivateDID(txDeactivateWrong)
+	s.Error(err, "DID WAS AREADY DEACTIVE")
+
+}
+
 func (s *txValidatorTestSuite) TestGetIDFromUri() {
 	validUriFormat := "did:elastos:icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN"
 	id := s.validator.Store.GetDIDFromUri(validUriFormat)
@@ -217,6 +292,28 @@ func getPayloadCreateDID() *types.Operation {
 			VerificationMethod: "did:elastos:icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN#default",
 		},
 		PayloadInfo: info,
+	}
+
+	privateKey1, _ := common.HexStringToBytes(PayloadPrivateKey)
+	sign, _ := crypto.Sign(privateKey1, p.GetData())
+	p.Proof.Signature = base64url.EncodeToString(sign)
+	return p
+}
+
+func getPayloadDeactivateDID(did, verifDid string) *types.DeactivateDIDOptPayload {
+	info := new(types.DIDPayloadInfo)
+	json.Unmarshal(didPayloadBytes, info)
+
+	p := &types.DeactivateDIDOptPayload{
+		Header: types.DIDHeaderInfo{
+			Specification: "elastos/did/1.0",
+			Operation:     "create",
+		},
+		Payload: did,
+		Proof: types.DIDProofInfo{
+			Type:               "ECDSAsecp256r1",
+			VerificationMethod: verifDid,
+		},
 	}
 
 	privateKey1, _ := common.HexStringToBytes(PayloadPrivateKey)
