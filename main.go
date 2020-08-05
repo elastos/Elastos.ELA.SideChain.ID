@@ -99,7 +99,7 @@ func main() {
 		ChainParams:    spvNetParams,
 		PermanentPeers: cfg.SPVPermanentPeers,
 		GenesisAddress: genesisAddress,
-		FilterType:  filter.FTNexTTurnDPOSInfo,
+		FilterType:     filter.FTNexTTurnDPOSInfo,
 	}
 	spvService, err := spv.NewService(&spvCfg)
 	if err != nil {
@@ -365,7 +365,7 @@ func printSyncState(db *blockchain.ChainStore, server server.Server) {
 func startMongoDB() *mongo.Client {
 	client, err := tryConnectToMongoDB(cfg.MongoDBAddress)
 	if err != nil {
-		if err = createMongoDB() ; err != nil {
+		if err = createMongoDB(); err != nil {
 			panic(err)
 		}
 		client, err = tryConnectToMongoDB(cfg.MongoDBAddress)

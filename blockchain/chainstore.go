@@ -44,9 +44,14 @@ func NewChainStore(genesisBlock *types.Block, dataPath string, mongoDB *mongo.Cl
 		mongoDB:    mongoDB,
 	}
 
-	store.RegisterFunctions(true, blockchain.StoreFuncNames.PersistTransactions, store.persistTransactions)
-	store.RegisterFunctions(false, blockchain.StoreFuncNames.RollbackTransactions, store.rollbackTransactions)
-
+	store.RegisterFunctions(blockchain.PersistFunction,
+		blockchain.StoreFuncNames.PersistTransactions, store.persistTransactions)
+	store.RegisterFunctions(blockchain.PersistCallbackFunction,
+		blockchain.StoreFuncNames.PersistTransactions, store.callbackAfterPersistTransactions)
+	store.RegisterFunctions(blockchain.RollbackFunction,
+		blockchain.StoreFuncNames.RollbackTransactions, store.rollbackTransactions)
+	store.RegisterFunctions(blockchain.RollbackCallbackFunction,
+		blockchain.StoreFuncNames.RollbackTransactions, store.callbackAfterRollbackTransactions)
 	return store, nil
 }
 
@@ -95,8 +100,21 @@ func (c *IDChainStore) persistTransactions(batch database.Batch, b *types.Block)
 				txn, b.GetHeight(), b.GetTimeStamp()); err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+func (c *IDChainStore) callbackAfterPersistTransactions(batch database.Batch, b *types.Block) error {
+	for _, txn := range b.Transactions {
+		switch txn.TxType {
+		case id.RegisterIdentification:
+			// no need to process?
+		case id.RegisterDID:
+			regPayload := txn.Payload.(*id.Operation)
 			if c.mongoDB != nil {
-				if err := c.persistRegisterDIDTransactionWithMongoDB(regPayload); err != nil {
+				if err := c.persistRegisterDIDTransactionWithMongoDB(
+					regPayload, b.GetHeight()); err != nil {
 					return err
 				}
 			}
@@ -105,18 +123,58 @@ func (c *IDChainStore) persistTransactions(batch database.Batch, b *types.Block)
 	return nil
 }
 
-func (c *IDChainStore) persistRegisterDIDTransactionWithMongoDB(payload *id.Operation) error {
-	database := c.mongoDB.Database("did_db")
-	collection := database.Collection("did_collection")
-
-	var result *mongo.InsertOneResult
-	var err error
-	if result, err = collection.InsertOne(context.TODO(), payload); err != nil {
-		return err
+func (c *IDChainStore) persistRegisterDIDTransactionWithMongoDB(
+	payload *id.Operation, height uint32) (err error) {
+	var session mongo.Session
+	if session, err = c.mongoDB.StartSession(); err != nil {
+		panic(err)
+	}
+	if err = session.StartTransaction(); err != nil {
+		panic(err)
 	}
 
-	fmt.Println(result)
-	return nil
+	// persist transaction payload
+	if err = mongo.WithSession(context.Background(), session, func(sc mongo.SessionContext) error {
+		db := c.mongoDB.Database("did_db")
+		collection := db.Collection("did_collection")
+
+		var result *mongo.InsertOneResult
+		if result, err = collection.InsertOne(context.Background(), payload); err != nil {
+			return err
+		}
+		fmt.Println(result)
+
+		if err = session.CommitTransaction(sc); err != nil {
+			panic(err)
+		}
+		return nil
+	}); err != nil {
+		panic(err)
+	}
+
+	// persist current height
+	if err = mongo.WithSession(context.Background(), session, func(sc mongo.SessionContext) error {
+		db := c.mongoDB.Database("did_db")
+		collection := db.Collection("did_collection_height")
+
+		filter := bson.M{"Height": height - 1}
+		update := bson.M{"$set": bson.M{"Height": height}}
+		var result *mongo.UpdateResult
+		if result, err = collection.UpdateOne(context.Background(), filter, update); err != nil {
+			return err
+		}
+		fmt.Println(result)
+		if err = session.CommitTransaction(sc); err != nil {
+			panic(err)
+		}
+		return nil
+	}); err != nil {
+		panic(err)
+	}
+
+	// end session
+	session.EndSession(context.Background())
+	return
 }
 
 func (c *IDChainStore) GetDIDFromUri(idURI string) string {
@@ -165,8 +223,21 @@ func (c *IDChainStore) rollbackTransactions(batch database.Batch, b *types.Block
 			if err := c.rollbackRegisterDIDTx(batch, []byte(id), txn); err != nil {
 				return err
 			}
+		}
+	}
+
+	return nil
+}
+
+func (c *IDChainStore) callbackAfterRollbackTransactions(batch database.Batch, b *types.Block) error {
+	for _, txn := range b.Transactions {
+		switch txn.TxType {
+		case id.RegisterIdentification:
+		case id.RegisterDID:
+			regPayload := txn.Payload.(*id.Operation)
 			if c.mongoDB != nil {
-				if err := c.rollbackRegisterDIDTransactionWithMongoDB(regPayload); err != nil {
+				if err := c.rollbackRegisterDIDTransactionWithMongoDB(
+					regPayload, b.GetHeight()); err != nil {
 					return err
 				}
 			}
@@ -184,18 +255,58 @@ func Del(collection *mongo.Collection, m bson.M) {
 	log.Println("collection.DeleteOne:", deleteResult)
 }
 
-func (c *IDChainStore) rollbackRegisterDIDTransactionWithMongoDB(payload *id.Operation) error {
-	database := c.mongoDB.Database("did_db")
-	collection := database.Collection("did_collection")
-
-	var result *mongo.DeleteResult
-	var err error
-	if result, err = collection.DeleteOne(context.Background(), payload); err != nil {
-		return err
+func (c *IDChainStore) rollbackRegisterDIDTransactionWithMongoDB(
+	payload *id.Operation, height uint32) (err error) {
+	var session mongo.Session
+	if session, err = c.mongoDB.StartSession(); err != nil {
+		panic(err)
+	}
+	if err = session.StartTransaction(); err != nil {
+		panic(err)
 	}
 
-	fmt.Println(result)
-	return nil
+	// rollback transaction payload
+	if err = mongo.WithSession(context.TODO(), session, func(sc mongo.SessionContext) error {
+		db := c.mongoDB.Database("did_db")
+		collection := db.Collection("did_collection")
+
+		var result *mongo.DeleteResult
+		if result, err = collection.DeleteOne(context.Background(), payload); err != nil {
+			return err
+		}
+		fmt.Println(result)
+
+		if err = session.CommitTransaction(sc); err != nil {
+			panic(err)
+		}
+		return nil
+	}); err != nil {
+		panic(err)
+	}
+
+	// rollback current height
+	if err = mongo.WithSession(context.TODO(), session, func(sc mongo.SessionContext) error {
+		db := c.mongoDB.Database("did_db")
+		collection := db.Collection("did_collection_height")
+
+		filter := bson.M{"Height": height}
+		update := bson.M{"$set": bson.M{"Height": height - 1}}
+		var result *mongo.UpdateResult
+		if result, err = collection.UpdateOne(context.TODO(), filter, update); err != nil {
+			return err
+		}
+		fmt.Println(result)
+		if err = session.CommitTransaction(sc); err != nil {
+			panic(err)
+		}
+		return nil
+	}); err != nil {
+		panic(err)
+	}
+
+	// end session
+	session.EndSession(context.TODO())
+	return
 }
 
 func (c *IDChainStore) persistRegisterIdentificationTx(batch database.Batch,
