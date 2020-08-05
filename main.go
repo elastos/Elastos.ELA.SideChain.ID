@@ -370,7 +370,7 @@ func printSyncState(db *blockchain.ChainStore, server server.Server) {
 func startMongoDB() *mongo.Client {
 	client, err := tryConnectToMongoDB(cfg.MongoDBAddress)
 	if err != nil {
-		if err = createMongoDB() ; err != nil {
+		if err = createMongoDB(); err != nil {
 			panic(err)
 		}
 		client, err = tryConnectToMongoDB(cfg.MongoDBAddress)
