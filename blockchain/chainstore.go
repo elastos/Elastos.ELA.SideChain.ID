@@ -43,6 +43,9 @@ func NewChainStore(genesisBlock *types.Block, dataPath string, mongoDB *mongo.Cl
 		ChainStore: chainStore,
 		mongoDB:    mongoDB,
 	}
+	if err := store.initChainStoreWithMongoDB(); err != nil {
+		return nil, err
+	}
 
 	store.RegisterFunctions(blockchain.PersistFunction,
 		blockchain.StoreFuncNames.PersistTransactions, store.persistTransactions)
@@ -55,8 +58,57 @@ func NewChainStore(genesisBlock *types.Block, dataPath string, mongoDB *mongo.Cl
 	return store, nil
 }
 
-func (c *IDChainStore) initChainStoreWithMongoDB() {
-	// todo migrate the data to MongoDB
+func (c *IDChainStore) initChainStoreWithMongoDB() (err error) {
+	// record current block height
+	db := c.mongoDB.Database("did_db")
+	collection := db.Collection("did_collection_height")
+	var count int64
+	if count, err = collection.CountDocuments(context.Background(), bson.M{}); err != nil {
+		return
+	}
+	currentHeight := c.GetHeight()
+
+	if count == 0 {
+		payload := bson.M{"Height": 0}
+		var result *mongo.InsertOneResult
+		if result, err = collection.InsertOne(context.Background(), payload); err != nil {
+			return err
+		}
+		fmt.Println(result)
+
+		return c.initMongoDBData(uint32(1), currentHeight)
+	}
+
+	// get current height
+	result := collection.FindOne(context.Background(), bson.D{{}})
+	type heightCollection struct {
+		Height uint32
+	}
+	var heightC heightCollection
+	if err = result.Decode(&heightC); err != nil {
+		return
+	}
+
+	return c.initMongoDBData(heightC.Height, currentHeight)
+}
+
+func (c *IDChainStore) initMongoDBData(startHeight, endHeight uint32) error {
+	for i := startHeight; i <= endHeight; i++ {
+		blockHash, err := c.GetBlockHash(i)
+		if err != nil {
+			return err
+		}
+		block, err := c.GetBlock(blockHash)
+		if err != nil {
+			return err
+		}
+
+		if err := c.callbackAfterPersistTransactions(nil, block); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (c *IDChainStore) persistTransactions(batch database.Batch, b *types.Block) error {
