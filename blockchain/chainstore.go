@@ -160,7 +160,51 @@ func (c *IDChainStore) persistTransactions(batch database.Batch, b *types.Block)
 	return nil
 }
 
+func (c *IDChainStore) persistHeightWithMongoDB(session mongo.Session, height uint32) (err error) {
+	// persist current height
+	if err = mongo.WithSession(context.Background(), session, func(sc mongo.SessionContext) error {
+		db := c.mongoDB.Database("did_db")
+		collection := db.Collection("did_collection_height")
+
+		filter := bson.M{"Height": height - 1}
+		update := bson.M{"$set": bson.M{"Height": height}}
+		var result *mongo.UpdateResult
+		if result, err = collection.UpdateOne(context.Background(), filter, update); err != nil {
+			return err
+		}
+		fmt.Println(result)
+		if err = session.CommitTransaction(sc); err != nil {
+			panic(err)
+		}
+		return nil
+	}); err != nil {
+		panic(err)
+	}
+	return nil
+}
+
+func (c *IDChainStore) startSessionWithMongoDB() (mongo.Session, error) {
+	var session mongo.Session
+	var err error
+	if session, err = c.mongoDB.StartSession(); err != nil {
+		panic(err)
+	}
+	if err = session.StartTransaction(); err != nil {
+		panic(err)
+	}
+	return session, nil
+}
+
+func (c *IDChainStore) endSessionWithMongoDB(session mongo.Session) {
+	// end session
+	session.EndSession(context.Background())
+}
+
 func (c *IDChainStore) callbackAfterPersistTransactions(batch database.Batch, b *types.Block) error {
+	session, err := c.startSessionWithMongoDB()
+	if err != nil {
+		return err
+	}
 	for _, txn := range b.Transactions {
 		switch txn.TxType {
 		case id.RegisterIdentification:
@@ -168,25 +212,20 @@ func (c *IDChainStore) callbackAfterPersistTransactions(batch database.Batch, b 
 		case id.RegisterDID:
 			regPayload := txn.Payload.(*id.Operation)
 			if c.mongoDB != nil {
-				if err := c.persistRegisterDIDTransactionWithMongoDB(
+				if err := c.persistRegisterDIDTransactionWithMongoDB(session,
 					regPayload, b.GetHeight(), b.GetTimeStamp(), txn.Hash()); err != nil {
 					return err
 				}
 			}
 		}
 	}
+	c.persistHeightWithMongoDB(session, b.GetHeight())
+	c.endSessionWithMongoDB(session)
 	return nil
 }
 
-func (c *IDChainStore) persistRegisterDIDTransactionWithMongoDB(payload *id.Operation,
+func (c *IDChainStore) persistRegisterDIDTransactionWithMongoDB(session mongo.Session, payload *id.Operation,
 	height uint32, timeStamp uint32, txHash common.Uint256) (err error) {
-	var session mongo.Session
-	if session, err = c.mongoDB.StartSession(); err != nil {
-		panic(err)
-	}
-	if err = session.StartTransaction(); err != nil {
-		panic(err)
-	}
 
 	didPayload := &id.DIDTransactionInfo{
 		TransactionData: id.TransactionData{
@@ -215,29 +254,6 @@ func (c *IDChainStore) persistRegisterDIDTransactionWithMongoDB(payload *id.Oper
 	}); err != nil {
 		panic(err)
 	}
-
-	// persist current height
-	if err = mongo.WithSession(context.Background(), session, func(sc mongo.SessionContext) error {
-		db := c.mongoDB.Database("did_db")
-		collection := db.Collection("did_collection_height")
-
-		filter := bson.M{"Height": height - 1}
-		update := bson.M{"$set": bson.M{"Height": height}}
-		var result *mongo.UpdateResult
-		if result, err = collection.UpdateOne(context.Background(), filter, update); err != nil {
-			return err
-		}
-		fmt.Println(result)
-		if err = session.CommitTransaction(sc); err != nil {
-			panic(err)
-		}
-		return nil
-	}); err != nil {
-		panic(err)
-	}
-
-	// end session
-	session.EndSession(context.Background())
 	return
 }
 
