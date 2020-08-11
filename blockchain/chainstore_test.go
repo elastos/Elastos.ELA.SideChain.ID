@@ -72,7 +72,7 @@ func TestIDChainStore_PersistDIDTx(t *testing.T) {
 
 	// prepare data for test
 	regPayload1 := getRandomPayloadDid(ID1)
-	var txData1, txData2, txData3 types.TranasactionData
+	var txData1, txData2, txData3 types.TransactionData
 	txData1.Operation = *regPayload1
 	buf1 := new(bytes.Buffer)
 	regPayload1.Serialize(buf1, types.DIDInfoVersion)

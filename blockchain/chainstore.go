@@ -59,6 +59,9 @@ func NewChainStore(genesisBlock *types.Block, dataPath string, mongoDB *mongo.Cl
 }
 
 func (c *IDChainStore) initChainStoreWithMongoDB() (err error) {
+	if c.mongoDB == nil {
+		return nil
+	}
 	// record current block height
 	db := c.mongoDB.Database("did_db")
 	collection := db.Collection("did_collection_height")
@@ -166,7 +169,7 @@ func (c *IDChainStore) callbackAfterPersistTransactions(batch database.Batch, b 
 			regPayload := txn.Payload.(*id.Operation)
 			if c.mongoDB != nil {
 				if err := c.persistRegisterDIDTransactionWithMongoDB(
-					regPayload, b.GetHeight()); err != nil {
+					regPayload, b.GetHeight(), b.GetTimeStamp(), txn.Hash()); err != nil {
 					return err
 				}
 			}
@@ -175,8 +178,8 @@ func (c *IDChainStore) callbackAfterPersistTransactions(batch database.Batch, b 
 	return nil
 }
 
-func (c *IDChainStore) persistRegisterDIDTransactionWithMongoDB(
-	payload *id.Operation, height uint32) (err error) {
+func (c *IDChainStore) persistRegisterDIDTransactionWithMongoDB(payload *id.Operation,
+	height uint32, timeStamp uint32, txHash common.Uint256) (err error) {
 	var session mongo.Session
 	if session, err = c.mongoDB.StartSession(); err != nil {
 		panic(err)
@@ -185,13 +188,22 @@ func (c *IDChainStore) persistRegisterDIDTransactionWithMongoDB(
 		panic(err)
 	}
 
+	didPayload := &id.DIDTransactionInfo{
+		TransactionData: id.TransactionData{
+			TXID:      txHash.String(),
+			Timestamp: string(timeStamp),
+			Operation: *payload,
+		},
+		BlockHeight: height,
+	}
+
 	// persist transaction payload
 	if err = mongo.WithSession(context.Background(), session, func(sc mongo.SessionContext) error {
 		db := c.mongoDB.Database("did_db")
 		collection := db.Collection("did_collection")
 
 		var result *mongo.InsertOneResult
-		if result, err = collection.InsertOne(context.Background(), payload); err != nil {
+		if result, err = collection.InsertOne(context.Background(), didPayload); err != nil {
 			return err
 		}
 		fmt.Println(result)
@@ -641,7 +653,7 @@ func (c *IDChainStore) persistRegisterDIDPayload(batch database.Batch,
 	return batch.Put(key, buf.Bytes())
 }
 
-func (c *IDChainStore) GetLastDIDTxData(idKey []byte) (*id.TranasactionData, error) {
+func (c *IDChainStore) GetLastDIDTxData(idKey []byte) (*id.TransactionData, error) {
 	key := []byte{byte(IX_DIDTXHash)}
 	key = append(key, idKey...)
 
@@ -678,7 +690,7 @@ func (c *IDChainStore) GetLastDIDTxData(idKey []byte) (*id.TranasactionData, err
 		return nil, http.NewError(int(service.ResolverInternalError),
 			"tempOperation Deserialize failed")
 	}
-	tempTxData := new(id.TranasactionData)
+	tempTxData := new(id.TransactionData)
 	tempTxData.TXID = txHash.String()
 	tempTxData.Operation = *tempOperation
 	tempTxData.Timestamp = tempOperation.PayloadInfo.Expires
@@ -711,7 +723,7 @@ func (c *IDChainStore) GetExpiresHeight(idKey []byte) (uint32, error) {
 	return expiresBlockHeight, nil
 }
 
-func (c *IDChainStore) GetAllDIDTxTxData(idKey []byte) ([]id.TranasactionData, error) {
+func (c *IDChainStore) GetAllDIDTxTxData(idKey []byte) ([]id.TransactionData, error) {
 	key := []byte{byte(IX_DIDTXHash)}
 	key = append(key, idKey...)
 
@@ -725,7 +737,7 @@ func (c *IDChainStore) GetAllDIDTxTxData(idKey []byte) ([]id.TranasactionData, e
 	if err != nil {
 		return nil, err
 	}
-	var transactionsData []id.TranasactionData
+	var transactionsData []id.TransactionData
 	for i := uint64(0); i < count; i++ {
 		var txHash common.Uint256
 		if err := txHash.Deserialize(r); err != nil {
@@ -745,7 +757,7 @@ func (c *IDChainStore) GetAllDIDTxTxData(idKey []byte) ([]id.TranasactionData, e
 			return nil, http.NewError(int(service.InvalidTransaction),
 				"payloaddid Deserialize failed")
 		}
-		tempTxData := new(id.TranasactionData)
+		tempTxData := new(id.TransactionData)
 		tempTxData.TXID = txHash.String()
 		tempTxData.Operation = *tempOperation
 		tempTxData.Timestamp = tempOperation.PayloadInfo.Expires

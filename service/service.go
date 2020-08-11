@@ -120,7 +120,7 @@ type RpcTranasactionData struct {
 }
 
 func (rpcTxData *RpcTranasactionData) FromTranasactionData(txData id.
-	TranasactionData) bool {
+TransactionData) bool {
 	hash, err := common.Uint256FromHexString(txData.TXID)
 	if err != nil {
 		return false
@@ -194,7 +194,7 @@ func (s *HttpService) ResolveDID(param http.Params) (interface{}, error) {
 
 	}
 
-	var txsData []id.TranasactionData
+	var txsData []id.TransactionData
 	if isGetAll {
 		txsData, err = s.store.GetAllDIDTxTxData(buf.Bytes())
 		if err != nil {
