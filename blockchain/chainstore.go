@@ -311,17 +311,9 @@ func (c *IDChainStore) callbackAfterRollbackTransactions(batch database.Batch, b
 	if err != nil {
 		return err
 	}
-	for _, txn := range b.Transactions {
-		switch txn.TxType {
-		case id.RegisterIdentification:
-		case id.RegisterDID:
-			regPayload := txn.Payload.(*id.Operation)
-			if c.mongoDB != nil {
-				if err := c.rollbackRegisterDIDTransactionWithMongoDB(session,
-					regPayload, b.GetHeight()); err != nil {
-					return err
-				}
-			}
+	if c.mongoDB != nil {
+		if err := c.rollbackRegisterDIDTransactionWithMongoDB(session, b.GetHeight()); err != nil {
+			return err
 		}
 	}
 	c.rollbackHeightWithMongoDB(session, b.GetHeight())
@@ -350,9 +342,6 @@ func (c *IDChainStore) rollbackHeightWithMongoDB(session mongo.Session, height u
 			return err
 		}
 		fmt.Println(result)
-		if err = session.CommitTransaction(sc); err != nil {
-			panic(err)
-		}
 		return nil
 	}); err != nil {
 		panic(err)
@@ -360,23 +349,17 @@ func (c *IDChainStore) rollbackHeightWithMongoDB(session mongo.Session, height u
 	return nil
 }
 
-func (c *IDChainStore) rollbackRegisterDIDTransactionWithMongoDB(session mongo.Session,
-	payload *id.Operation, height uint32) (err error) {
-
+func (c *IDChainStore) rollbackRegisterDIDTransactionWithMongoDB(session mongo.Session, height uint32) (err error) {
 	// rollback transaction payload
 	if err = mongo.WithSession(context.TODO(), session, func(sc mongo.SessionContext) error {
 		db := c.mongoDB.Database("did_db")
 		collection := db.Collection("did_collection")
-
 		var result *mongo.DeleteResult
-		if result, err = collection.DeleteOne(context.Background(), payload); err != nil {
-			return err
+		result, err = collection.DeleteMany(context.TODO(), bson.D{{"blockheight", height}})
+		if err != nil {
+			log.Fatal(err)
 		}
 		fmt.Println(result)
-
-		if err = session.CommitTransaction(sc); err != nil {
-			panic(err)
-		}
 		return nil
 	}); err != nil {
 		panic(err)
