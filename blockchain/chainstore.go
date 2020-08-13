@@ -33,17 +33,18 @@ type IDChainStore struct {
 	mongoDB *mongo.Client
 }
 
-func NewChainStore(genesisBlock *types.Block, dataPath string, mongoDB *mongo.Client) (*IDChainStore, error) {
+func NewChainStore(interrupt <-chan struct{}, barStart func(total uint32),
+	increase func(), genesisBlock *types.Block, dataPath string,
+	mongoDB *mongo.Client) (*IDChainStore, error) {
 	chainStore, err := blockchain.NewChainStore(dataPath, genesisBlock)
 	if err != nil {
 		return nil, err
 	}
-
 	store := &IDChainStore{
 		ChainStore: chainStore,
 		mongoDB:    mongoDB,
 	}
-	if err := store.initChainStoreWithMongoDB(); err != nil {
+	if err := store.initChainStoreWithMongoDB(interrupt, barStart, increase); err != nil {
 		return nil, err
 	}
 
@@ -58,10 +59,12 @@ func NewChainStore(genesisBlock *types.Block, dataPath string, mongoDB *mongo.Cl
 	return store, nil
 }
 
-func (c *IDChainStore) initChainStoreWithMongoDB() (err error) {
+func (c *IDChainStore) initChainStoreWithMongoDB(interrupt <-chan struct{},
+	barStart func(total uint32), increase func()) (err error) {
 	if c.mongoDB == nil {
 		return nil
 	}
+
 	// record current block height
 	db := c.mongoDB.Database("did_db")
 	collection := db.Collection("did_collection_height")
@@ -79,7 +82,7 @@ func (c *IDChainStore) initChainStoreWithMongoDB() (err error) {
 		}
 		fmt.Println(result)
 
-		return c.initMongoDBData(uint32(1), currentHeight)
+		return c.initMongoDBData(interrupt, barStart, increase, uint32(1), currentHeight)
 	}
 
 	// get current height
@@ -92,26 +95,51 @@ func (c *IDChainStore) initChainStoreWithMongoDB() (err error) {
 		return
 	}
 
-	return c.initMongoDBData(heightC.Height, currentHeight)
+	return c.initMongoDBData(interrupt, barStart, increase,
+		heightC.Height, currentHeight)
 }
 
-func (c *IDChainStore) initMongoDBData(startHeight, endHeight uint32) error {
-	for i := startHeight; i <= endHeight; i++ {
-		blockHash, err := c.GetBlockHash(i)
-		if err != nil {
-			return err
-		}
-		block, err := c.GetBlock(blockHash)
-		if err != nil {
-			return err
-		}
+func (c *IDChainStore) initMongoDBData(
+	interrupt <-chan struct{}, barStart func(total uint32),
+	increase func(), startHeight, endHeight uint32) (err error) {
 
-		if err := c.callbackAfterPersistTransactions(nil, block); err != nil {
-			return err
+	done := make(chan struct{})
+	go func() {
+		// Notify initialize process start.
+		if barStart != nil && endHeight >= startHeight {
+			barStart(endHeight - startHeight)
 		}
+		for i := startHeight; i <= endHeight; i++ {
+			var blockHash common.Uint256
+			blockHash, err = c.GetBlockHash(i)
+			if err != nil {
+				return
+			}
+			var block *types.Block
+			block, err = c.GetBlock(blockHash)
+			if err != nil {
+				return
+			}
+
+			if err := c.callbackAfterPersistTransactions(nil, block); err != nil {
+				return
+			}
+
+			// Notify process increase.
+			if increase != nil {
+				increase()
+			}
+		}
+		done <- struct{}{}
+	}()
+
+	select {
+	case <-done:
+		fmt.Println("migrate to mongoDB: finished")
+	case <-interrupt:
+		fmt.Println("migrate to mongoDB: interrupted")
 	}
-
-	return nil
+	return err
 }
 
 func (c *IDChainStore) persistTransactions(batch database.Batch, b *types.Block) error {
@@ -171,7 +199,6 @@ func (c *IDChainStore) persistHeightWithMongoDB(session mongo.Session, height ui
 		if _, err = collection.UpdateOne(context.Background(), filter, update); err != nil {
 			return err
 		}
-		fmt.Println("current height:", height)
 		return nil
 	}); err != nil {
 		panic(err)

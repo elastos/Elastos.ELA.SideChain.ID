@@ -72,12 +72,14 @@ func main() {
 	client := startMongoDB()
 
 	eladlog.Info("1. BlockChain init")
-	idChainStore, err := bc.NewChainStore(activeNetParams.GenesisBlock,
+	idChainStore, err := bc.NewChainStore(interrupt.C, pgBar.Start,
+		pgBar.Increase, activeNetParams.GenesisBlock,
 		filepath.Join(DataPath, DataDir, ChainDir), client)
 	if err != nil {
 		eladlog.Fatalf("open chain store failed, %s", err)
 		os.Exit(1)
 	}
+	pgBar.Stop()
 	defer idChainStore.Close()
 
 	eladlog.Info("2. SPV module init")
