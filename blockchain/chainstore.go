@@ -168,14 +168,10 @@ func (c *IDChainStore) persistHeightWithMongoDB(session mongo.Session, height ui
 
 		filter := bson.M{"Height": height - 1}
 		update := bson.M{"$set": bson.M{"Height": height}}
-		var result *mongo.UpdateResult
-		if result, err = collection.UpdateOne(context.Background(), filter, update); err != nil {
+		if _, err = collection.UpdateOne(context.Background(), filter, update); err != nil {
 			return err
 		}
-		fmt.Println(result)
-		if err = session.CommitTransaction(sc); err != nil {
-			panic(err)
-		}
+		fmt.Println("current height:", height)
 		return nil
 	}); err != nil {
 		panic(err)
@@ -197,6 +193,9 @@ func (c *IDChainStore) startSessionWithMongoDB() (mongo.Session, error) {
 
 func (c *IDChainStore) endSessionWithMongoDB(session mongo.Session) {
 	// end session
+	if err := session.CommitTransaction(context.Background()); err != nil {
+		panic(err)
+	}
 	session.EndSession(context.Background())
 }
 
@@ -228,12 +227,13 @@ func (c *IDChainStore) persistRegisterDIDTransactionWithMongoDB(session mongo.Se
 	height uint32, timeStamp uint32, txHash common.Uint256) (err error) {
 
 	didPayload := &id.DIDTransactionInfo{
-		TransactionData: id.TransactionData{
-			TXID:      txHash.String(),
-			Timestamp: string(timeStamp),
-			Operation: *payload,
-		},
+		TXID:        txHash.String(),
+		Timestamp:   timeStamp,
 		BlockHeight: height,
+		Header:      payload.Header,
+		Payload:     payload.Payload,
+		PayloadInfo: payload.PayloadInfo,
+		Proof:       payload.Proof,
 	}
 
 	// persist transaction payload
@@ -247,9 +247,6 @@ func (c *IDChainStore) persistRegisterDIDTransactionWithMongoDB(session mongo.Se
 		}
 		fmt.Println(result)
 
-		if err = session.CommitTransaction(sc); err != nil {
-			panic(err)
-		}
 		return nil
 	}); err != nil {
 		panic(err)
