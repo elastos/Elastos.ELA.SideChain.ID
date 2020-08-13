@@ -195,8 +195,13 @@ type TransactionData struct {
 }
 
 type DIDTransactionInfo struct {
-	TransactionData
-	BlockHeight uint32 `json:"BlockHeight"`
+	TXID        string          `json:"txid"`
+	Timestamp   uint32          `json:"timestamp"`
+	BlockHeight uint32          `json:"blockHeight"`
+	Header      DIDHeaderInfo   `json:"header"`
+	Payload     string          `json:"payload"`
+	PayloadInfo *DIDPayloadInfo `json:"payloadInfo"`
+	Proof       DIDProofInfo    `json:"proof"`
 }
 
 func (p *TransactionData) Serialize(w io.Writer, version byte) error {
@@ -282,24 +287,4 @@ func (p *Operation) GetData() []byte {
 
 	}
 	return []byte(dataString)
-}
-
-func (p *DIDTransactionInfo) Serialize(w io.Writer, version byte) error {
-	if err := p.TransactionData.Serialize(w, version); err != nil {
-		return errors.New("[DIDTransactionInfo] TransactionData serialize failed," +
-			"" + err.Error())
-	}
-	if err := common.WriteUint32(w, p.BlockHeight); err != nil {
-		return errors.New("[DIDTransactionInfo] BlockHeight serialize failed," +
-			"" + err.Error())
-	}
-	return nil
-}
-
-func (p *DIDTransactionInfo) Deserialize(r io.Reader, version byte) error {
-	return nil
-}
-
-func (p *DIDTransactionInfo) Data(version byte) []byte {
-	return nil
 }

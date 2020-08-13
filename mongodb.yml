@@ -8,4 +8,4 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - /tmp:/data/db
+      - ./elastos_did/data/mgo:/data/db

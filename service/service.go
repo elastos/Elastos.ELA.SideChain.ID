@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/elastos/Elastos.ELA/common"
 	"github.com/elastos/Elastos.ELA/elanet/pact"
 	"github.com/elastos/Elastos.ELA/utils/http"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type Config struct {
@@ -25,12 +27,14 @@ type Config struct {
 	RestPort uint16
 	WSPort   uint16
 	Store    *blockchain.IDChainStore
+	MongoDB  *mongo.Client
 }
 
 type HttpService struct {
 	*service.HttpService
-	cfg   *Config
-	store *blockchain.IDChainStore
+	cfg     *Config
+	store   *blockchain.IDChainStore
+	mongoDB *mongo.Client
 }
 
 type DidDocState uint8
@@ -62,6 +66,7 @@ func NewHttpService(cfg *Config) *HttpService {
 		HttpService: service.NewHttpService(&cfg.Config),
 		cfg:         cfg,
 		store:       cfg.Store,
+		mongoDB:     cfg.MongoDB,
 	}
 	return server
 }
@@ -120,7 +125,7 @@ type RpcTranasactionData struct {
 }
 
 func (rpcTxData *RpcTranasactionData) FromTranasactionData(txData id.
-TransactionData) bool {
+	TransactionData) bool {
 	hash, err := common.Uint256FromHexString(txData.TXID)
 	if err != nil {
 		return false
@@ -153,6 +158,29 @@ func (s *HttpService) getTxTime(txid string) (error, uint32) {
 
 	}
 	return nil, header.GetTimeStamp()
+}
+
+func (s *HttpService) RequeryDID(param http.Params) (interface{}, error) {
+	query, ok := param.String("query")
+	if !ok {
+		return nil, http.NewError(int(service.InvalidParams), "did is null")
+	}
+	db := s.mongoDB.Database("did_db")
+	collection := db.Collection("did_collection")
+
+	var tx id.DIDTransactionInfo
+	if err := json.Unmarshal([]byte(query), &tx); err != nil {
+		return nil, err
+	}
+	var results []id.DIDTransactionInfo
+	result, err := collection.Find(context.Background(), tx)
+	if err != nil {
+		return nil, err
+	}
+	if err := result.All(context.Background(), &results); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (s *HttpService) ResolveDID(param http.Params) (interface{}, error) {

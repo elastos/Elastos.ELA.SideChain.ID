@@ -202,6 +202,7 @@ func main() {
 		RestPort: cfg.RESTPort,
 		WSPort:   cfg.WSPort,
 		Store:    idChainStore,
+		MongoDB:  client,
 	}
 	service := sv.NewHttpService(&serviceCfg)
 
@@ -275,6 +276,7 @@ func newRPCServer(port uint16, service *sv.HttpService) *jsonrpc.Server {
 	s.RegisterAction("getillegalevidencebyheight", service.GetIllegalEvidenceByHeight, "height")
 	s.RegisterAction("checkillegalevidence", service.CheckIllegalEvidence, "evidence")
 	s.RegisterAction("resolvedid", service.ResolveDID, "id", "all")
+	s.RegisterAction("querydid", service.RequeryDID, "query")
 
 	return s
 }
@@ -368,24 +370,22 @@ func printSyncState(db *blockchain.ChainStore, server server.Server) {
 }
 
 func startMongoDB() *mongo.Client {
+	if err := createMongoDB(); err != nil {
+		panic(err)
+	}
 	client, err := tryConnectToMongoDB(cfg.MongoDBAddress)
 	if err != nil {
-		if err = createMongoDB(); err != nil {
-			panic(err)
-		}
-		client, err = tryConnectToMongoDB(cfg.MongoDBAddress)
-		if err != nil {
-			panic(err)
-		}
+		panic(err)
 	}
 
 	return client
-
 }
 
 func tryConnectToMongoDB(mongoDBAddress string) (*mongo.Client, error) {
 	clientOptions := options.Client().ApplyURI(mongoDBAddress)
-	client, err := mongo.Connect(context.TODO(), clientOptions)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		return nil, err
 	}
