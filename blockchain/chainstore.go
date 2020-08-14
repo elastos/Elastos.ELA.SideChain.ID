@@ -76,12 +76,10 @@ func (c *IDChainStore) initChainStoreWithMongoDB(interrupt <-chan struct{},
 
 	if count == 0 {
 		payload := bson.M{"Height": 0}
-		var result *mongo.InsertOneResult
-		if result, err = collection.InsertOne(context.Background(), payload); err != nil {
+		if _, err = collection.InsertOne(context.Background(), payload); err != nil {
 			return err
 		}
-		fmt.Println(result)
-
+		//return c.initMongoDBData(interrupt, barStart, increase, 276662, 277000)
 		return c.initMongoDBData(interrupt, barStart, increase, uint32(1), currentHeight)
 	}
 
@@ -195,6 +193,9 @@ func (c *IDChainStore) persistHeightWithMongoDB(session mongo.Session, height ui
 		collection := db.Collection("did_collection_height")
 
 		filter := bson.M{"Height": height - 1}
+		//if height == 276662 {
+		//	filter = bson.M{"Height": 0}
+		//}
 		update := bson.M{"$set": bson.M{"Height": height}}
 		if _, err = collection.UpdateOne(context.Background(), filter, update); err != nil {
 			return err
