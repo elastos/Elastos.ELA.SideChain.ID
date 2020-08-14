@@ -18,6 +18,7 @@ import (
 	"github.com/elastos/Elastos.ELA/elanet/pact"
 	"github.com/elastos/Elastos.ELA/utils/http"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/integration/mtest"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -171,25 +172,39 @@ func (s *HttpService) RequeryDID(param http.Params) (interface{}, error) {
 	db := s.mongoDB.Database("did_db")
 	collection := db.Collection("did_collection")
 
-	//queryOptions, _ := param.ArrayString("projection")
+	queryOptions, _ := param["projection"]
 	var findOptions []*options.FindOptions
-	//for _, o := range queryOptions {
-	//	var opt options.FindOptions
-	//	if err := json.Unmarshal([]byte(o), &opt); err != nil {
-	//		return nil, err
-	//	}
-	//	findOptions = append(findOptions, &opt)
-	//}
+	switch v := queryOptions.(type) {
+	case []interface{}:
+		for _, param := range v {
+			fmt.Println(param)
+			var findOption options.FindOptions
+			data, err := json.Marshal(param)
+			if err != nil {
+				return nil, errors.New("invalid projection")
+			}
+			if err := json.Unmarshal(data, &findOption); err != nil {
+				return nil, errors.New("invalid projection")
+			}
+			findOptions = append(findOptions, &findOption)
+		}
+	}
 
-	result, err := collection.Find(context.Background(), query, findOptions...)
+	cursor, err := collection.Find(context.Background(), query, findOptions...)
 	if err != nil {
 		return nil, err
 	}
+
 	var results []id.DIDTransactionInfo
-	if err := result.All(context.Background(), &results); err != nil {
-		return nil, err
+	for cursor.Next(mtest.Background) {
+		var result id.DIDTransactionInfo
+		if err := cursor.Decode(&result); err != nil {
+			return nil, err
+		}
+		results = append(results, result)
 	}
-	return result, nil
+
+	return results, nil
 }
 
 func (s *HttpService) ResolveDID(param http.Params) (interface{}, error) {
