@@ -17,10 +17,12 @@ This project is the source code that can build a full node of DID.
     - [1. Check OS version](#1-check-os-version)
     - [2. Install Go distribution 1.13](#2-install-go-distribution-113)
     - [3. Check Go version](#3-check-go-version)
+    - [4. Install Docker Desktop](#4-install-docker-desktop)
 - [Pre-requisites on Ubuntu](#pre-requisites-on-ubuntu)
     - [1. Check Ubuntu version](#1-check-ubuntu-version)
     - [2. Install git](#2-install-git)
     - [3. Install Go distribution 1.13](#3-install-go-distribution-113)
+    - [4. Install docker](#4-install-docker)
 - [Configure the node](#configure-the-node)
 - [Build the node](#build-the-node)
     - [1. Check Go version](#1-check-go-version)
@@ -61,15 +63,28 @@ $ go version
 go version go1.13 darwin/amd64
 ```
 
+#### 4. Install Docker Desktop
+
+```shell
+$ brew cask install docker
+$ docker version
+Client: Docker Engine - Community
+ Version:           19.03.12
+```
+
+Open Docker Desktop Preferences-> Resources-> File Sharing, 
+Add the project directory($HOME/elastos_did/data/mgo) to the list, 
+and restart docker desktop.
+
 ## Pre-requisites on Ubuntu
 
 #### 1. Check Ubuntu version
 
-Make sure your ubuntu version is 16.04+
+Make sure your ubuntu version at least 16.04+
 
-```shell
+```shell script
 $ cat /etc/issue
-Ubuntu 16.04.3 LTS \n \l
+Ubuntu 18.04 LTS \n \l
 ```
 
 #### 2. Install git
@@ -88,6 +103,15 @@ $ sudo mv go /usr/local
 $ export GOPATH=$HOME/go
 $ export PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
 $ source ~/.profile
+```
+
+#### 4. Install docker
+
+```shell script
+$ apt install docker.io docker-compose
+$ docker version
+Client: Docker Engine - Community
+ Version:           19.03.8
 ```
 
 ## Configure the node
