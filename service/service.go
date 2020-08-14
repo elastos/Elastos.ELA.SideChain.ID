@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/elastos/Elastos.ELA.SideChain.ID/blockchain"
@@ -17,6 +18,7 @@ import (
 	"github.com/elastos/Elastos.ELA/elanet/pact"
 	"github.com/elastos/Elastos.ELA/utils/http"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Config struct {
@@ -161,22 +163,29 @@ func (s *HttpService) getTxTime(txid string) (error, uint32) {
 }
 
 func (s *HttpService) RequeryDID(param http.Params) (interface{}, error) {
-	query, ok := param.String("query")
+	query, ok := param["query"]
 	if !ok {
 		return nil, http.NewError(int(service.InvalidParams), "did is null")
 	}
+	fmt.Println(query)
 	db := s.mongoDB.Database("did_db")
 	collection := db.Collection("did_collection")
 
-	var tx id.DIDTransactionInfo
-	if err := json.Unmarshal([]byte(query), &tx); err != nil {
-		return nil, err
-	}
-	var results []id.DIDTransactionInfo
-	result, err := collection.Find(context.Background(), tx)
+	//queryOptions, _ := param.ArrayString("projection")
+	var findOptions []*options.FindOptions
+	//for _, o := range queryOptions {
+	//	var opt options.FindOptions
+	//	if err := json.Unmarshal([]byte(o), &opt); err != nil {
+	//		return nil, err
+	//	}
+	//	findOptions = append(findOptions, &opt)
+	//}
+
+	result, err := collection.Find(context.Background(), query, findOptions...)
 	if err != nil {
 		return nil, err
 	}
+	var results []id.DIDTransactionInfo
 	if err := result.All(context.Background(), &results); err != nil {
 		return nil, err
 	}
