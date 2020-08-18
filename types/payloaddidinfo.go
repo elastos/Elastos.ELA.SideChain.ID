@@ -171,23 +171,38 @@ func (p *DIDPublicKeyInfo) Deserialize(r io.Reader, version byte) error {
 }
 
 type VerifiableCredential struct {
-	ID                string        `json:"id"`
-	Type              []string      `json:"type"`
-	Issuer            string        `json:"issuer"`
-	IssuanceDate      string        `json:"issuanceDate"`
-	ExpirationDate    string        `json:"expirationDate"`
-	CredentialSubject []interface{} `json:"credentialSubject"`
-	Proof             DIDProofInfo  `json:"proof"`
+	ID                string       `json:"id"`
+	Type              []string     `json:"type"`
+	Issuer            string       `json:"issuer"`
+	IssuanceDate      string       `json:"issuanceDate"`
+	ExpirationDate    string       `json:"expirationDate"`
+	CredentialSubject interface{}  `json:"credentialSubject"`
+	Proof             DIDProofInfo `json:"proof"`
+}
+
+func (p *VerifiableCredential) Serialize(w io.Writer, version byte) error {
+	// todo
+	return nil
+}
+
+func (p *VerifiableCredential) Deserialize(r io.Reader, version byte) error {
+	// todo
+	return nil
+}
+
+func (p *VerifiableCredential) Data(version byte) []byte {
+	// todo
+	return nil
 }
 
 // payload in DID transaction payload
 type DIDPayloadInfo struct {
-	ID                   string             `json:"id"`
-	PublicKey            []DIDPublicKeyInfo `json:"publicKey"`
-	Authentication       []interface{}      `json:"authentication"`
-	Authorization        []interface{}      `json:"authorization"`
-	VerifiableCredential []interface{}      `json:"verifiableCredential"`
-	Expires              string             `json:"expires"`
+	ID                   string                 `json:"id"`
+	PublicKey            []DIDPublicKeyInfo     `json:"publicKey"`
+	Authentication       []interface{}          `json:"authentication"`
+	Authorization        []interface{}          `json:"authorization"`
+	VerifiableCredential []VerifiableCredential `json:"verifiableCredential"`
+	Expires              string                 `json:"expires"`
 }
 
 // payload of DID transaction
