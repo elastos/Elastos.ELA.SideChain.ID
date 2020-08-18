@@ -13,6 +13,8 @@ import (
 )
 
 const DIDInfoVersion = 0x00
+const VerifiableCredentialVersion = 0x00
+
 const DID_ELASTOS_PREFIX = "did:elastos:"
 const (
 	Create_DID_Operation     = "create"
@@ -191,6 +193,11 @@ func (p *VerifiableCredential) Deserialize(r io.Reader, version byte) error {
 }
 
 func (p *VerifiableCredential) Data(version byte) []byte {
+	// todo
+	return nil
+}
+
+func (p *VerifiableCredential) GetData() []byte {
 	// todo
 	return nil
 }
