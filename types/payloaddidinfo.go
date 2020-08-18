@@ -170,13 +170,24 @@ func (p *DIDPublicKeyInfo) Deserialize(r io.Reader, version byte) error {
 	return nil
 }
 
+type VerifiableCredential struct {
+	ID                string        `json:"id"`
+	Type              []string      `json:"type"`
+	Issuer            string        `json:"issuer"`
+	IssuanceDate      string        `json:"issuanceDate"`
+	ExpirationDate    string        `json:"expirationDate"`
+	CredentialSubject []interface{} `json:"credentialSubject"`
+	Proof             DIDProofInfo  `json:"proof"`
+}
+
 // payload in DID transaction payload
 type DIDPayloadInfo struct {
-	ID             string             `json:"id"`
-	PublicKey      []DIDPublicKeyInfo `json:"publicKey"`
-	Authentication []interface{}      `json:"authentication"`
-	Authorization  []interface{}      `json:"authorization"`
-	Expires        string             `json:"expires"`
+	ID                   string             `json:"id"`
+	PublicKey            []DIDPublicKeyInfo `json:"publicKey"`
+	Authentication       []interface{}      `json:"authentication"`
+	Authorization        []interface{}      `json:"authorization"`
+	VerifiableCredential []interface{}      `json:"verifiableCredential"`
+	Expires              string             `json:"expires"`
 }
 
 // payload of DID transaction
