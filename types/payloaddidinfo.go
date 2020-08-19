@@ -79,7 +79,7 @@ func (d *DIDHeaderInfo) Deserialize(r io.Reader, version byte) error {
 
 // proof of DID transaction payload
 type DIDProofInfo struct {
-	Type               string `json:"type"`
+	Type               string `json:"type,omitempty"`
 	VerificationMethod string `json:"verificationMethod"`
 	Signature          string `json:"signature"`
 }
@@ -174,32 +174,20 @@ func (p *DIDPublicKeyInfo) Deserialize(r io.Reader, version byte) error {
 
 type VerifiableCredential struct {
 	ID                string       `json:"id"`
-	Type              []string     `json:"type"`
-	Issuer            string       `json:"issuer"`
-	IssuanceDate      string       `json:"issuanceDate"`
-	ExpirationDate    string       `json:"expirationDate"`
-	CredentialSubject interface{}  `json:"credentialSubject"`
-	Proof             DIDProofInfo `json:"proof"`
-}
-
-func (p *VerifiableCredential) Serialize(w io.Writer, version byte) error {
-	// todo
-	return nil
-}
-
-func (p *VerifiableCredential) Deserialize(r io.Reader, version byte) error {
-	// todo
-	return nil
-}
-
-func (p *VerifiableCredential) Data(version byte) []byte {
-	// todo
-	return nil
+	Type              []string     `json:"type,omitempty"`
+	Issuer            string       `json:"issuer,omitempty"`
+	IssuanceDate      string       `json:"issuanceDate,omitempty"`
+	ExpirationDate    string       `json:"expirationDate,omitempty"`
+	CredentialSubject interface{}  `json:"credentialSubject,omitempty"`
+	Proof             DIDProofInfo `json:"proof,omitempty"`
 }
 
 func (p *VerifiableCredential) GetData() []byte {
-	// todo
-	return nil
+	data, err := json.Marshal(p)
+	if err != nil {
+		return nil
+	}
+	return data
 }
 
 // payload in DID transaction payload
