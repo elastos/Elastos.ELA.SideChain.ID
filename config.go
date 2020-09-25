@@ -57,6 +57,7 @@ type configParams struct {
 	RPCUser                     string
 	RPCPass                     string
 	RPCWhiteList                []string
+	RPCServiceLevel             string
 	LogLevel                    elalog.Level
 	LogsFolderSize              int64
 	PerLogFileSize              int64

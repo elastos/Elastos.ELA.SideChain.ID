@@ -182,6 +182,7 @@ func main() {
 			PowService:                  powService,
 			SpvService:                  spvService,
 			SetLogLevel:                 setLogLevel,
+			ConfigurationPermitted:      cfg.RPCServiceLevel,
 			GetBlockInfo:                service.GetBlockInfo,
 			GetTransactionInfo:          sv.GetTransactionInfo,
 			GetTransactionInfoFromBytes: sv.GetTransactionInfoFromBytes,
@@ -197,10 +198,10 @@ func main() {
 		WSPort:   cfg.WSPort,
 		Store:    idChainStore,
 	}
-	service := sv.NewHttpService(&serviceCfg)
+	httpService := sv.NewHttpService(&serviceCfg)
 
 	if cfg.EnableRPC {
-		rpcServer := newRPCServer(cfg.RPCPort, service)
+		rpcServer := newRPCServer(cfg.RPCPort, httpService)
 		defer rpcServer.Stop()
 		go func() {
 			if err := rpcServer.Start(); err != nil {
@@ -210,7 +211,7 @@ func main() {
 	}
 
 	if cfg.EnableREST {
-		restServer := newRESTfulServer(cfg.RESTPort, service.HttpService)
+		restServer := newRESTfulServer(cfg.RESTPort, httpService.HttpService)
 		defer restServer.Stop()
 		go func() {
 			if err := restServer.Start(); err != nil {
@@ -220,7 +221,7 @@ func main() {
 	}
 
 	if cfg.EnableWS {
-		wsServer := newWebSocketServer(cfg.WSPort, service.HttpService, &serviceCfg.Config)
+		wsServer := newWebSocketServer(cfg.WSPort, httpService.HttpService, &serviceCfg.Config)
 		defer wsServer.Stop()
 		go func() {
 			if err := wsServer.Start(); err != nil {

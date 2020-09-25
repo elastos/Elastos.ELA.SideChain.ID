@@ -119,6 +119,7 @@ var MainNetParams = config.Params{
 	NewP2PProtocolVersionHeight: 751400,
 	CheckRegisterDIDHeight:      0,
 	RewardMinerOnlyStartHeight:  410500,
+	RPCServiceLevel:             config.ConfigurationPermitted.String(),
 }
 
 // TestNetParams defines the network parameters for the test network.
