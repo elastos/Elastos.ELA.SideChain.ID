@@ -10,3 +10,5 @@ require (
 	github.com/stretchr/testify v1.4.0
 	github.com/syndtr/goleveldb v1.0.0
 )
+
+replace github.com/elastos/Elastos.ELA.SideChain => /Users/baidu/Documents/study/go/GOPATH/src/github.com/elastos/Elastos.ELA.SideChain

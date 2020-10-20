@@ -221,6 +221,12 @@ func (c *IDChainStore) persistRegisterDIDTx(batch database.Batch,
 	return nil
 }
 
+func (c *IDChainStore) PersistRegisterDIDTx(batch database.Batch,
+	idKey []byte, tx *types.Transaction, blockHeight uint32,
+	blockTimeStamp uint32) error {
+	return c.persistRegisterDIDTx(batch, idKey, tx, blockHeight, blockTimeStamp)
+}
+
 func (c *IDChainStore) persistRegisterDIDExpiresHeight(batch database.Batch,
 	idKey []byte, expiresHeight uint32) error {
 	key := []byte{byte(IX_DIDExpiresHeight)}

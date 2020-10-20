@@ -14,9 +14,11 @@ import (
 )
 
 const DIDInfoVersion = 0x00
-const VerifiableCredentialVersion = 0x00
+const VerifiableCredentialVersion = 0x01
 
 const DID_ELASTOS_PREFIX = "did:elastos:"
+const ID_STRING = "id"
+
 const (
 	Create_DID_Operation     = "create"
 	Update_DID_Operation     = "update"
@@ -78,7 +80,7 @@ func (d *DIDHeaderInfo) Deserialize(r io.Reader, version byte) error {
 	return nil
 }
 
-// proof of DID transaction payload
+// Proof of DID transaction payload
 type DIDProofInfo struct {
 	Type               string `json:"type,omitempty"`
 	VerificationMethod string `json:"verificationMethod"`
@@ -173,14 +175,58 @@ func (p *DIDPublicKeyInfo) Deserialize(r io.Reader, version byte) error {
 	return nil
 }
 
+type VerifiableCredentialData struct {
+	ID                string      `json:"id"`
+	Type              []string    `json:"type,omitempty"`
+	Issuer            string      `json:"issuer,omitempty"`
+	IssuanceDate      string      `json:"issuanceDate,omitempty"`
+	ExpirationDate    string      `json:"expirationDate,omitempty"`
+	CredentialSubject interface{} `json:"credentialSubject,omitempty"`
+}
+
+func (p *VerifiableCredentialData) GetData() []byte {
+	data, err := didjson.Marshal(p)
+	if err != nil {
+		return nil
+	}
+	return data
+}
+
+func IsCompact(target string) bool {
+	if !strings.HasPrefix(target, DID_ELASTOS_PREFIX) {
+		return true
+	}
+	return false
+}
+
+func (p *VerifiableCredentialData) CompleteCompact(did string) {
+	if IsCompact(p.Issuer) {
+		p.Issuer = did + p.Issuer
+	}
+	if IsCompact(p.ID) {
+		p.ID = did + p.ID
+	}
+
+	creSub := p.CredentialSubject.(map[string]interface{})
+	realIssuer := ""
+	for k, v := range creSub {
+		if k == ID_STRING {
+			realIssuer = v.(string)
+			break
+		}
+	}
+	if realIssuer == "" {
+		creSub[ID_STRING] = did
+	}
+}
+
 type VerifiableCredential struct {
-	ID                string       `json:"id"`
-	Type              []string     `json:"type,omitempty"`
-	Issuer            string       `json:"issuer,omitempty"`
-	IssuanceDate      string       `json:"issuanceDate,omitempty"`
-	ExpirationDate    string       `json:"expirationDate,omitempty"`
-	CredentialSubject interface{}  `json:"credentialSubject,omitempty"`
-	Proof             DIDProofInfo `json:"proof,omitempty"`
+	*VerifiableCredentialData
+	Proof DIDProofInfo `json:"Proof,omitempty"`
+}
+
+func (p *VerifiableCredential) GetDIDProofInfo() *DIDProofInfo {
+	return &p.Proof
 }
 
 func (p *VerifiableCredential) GetData() []byte {
@@ -205,7 +251,7 @@ type DIDPayloadInfo struct {
 type Operation struct {
 	Header  DIDHeaderInfo `json:"header"`
 	Payload string        `json:"payload"`
-	Proof   DIDProofInfo  `json:"proof"`
+	Proof   DIDProofInfo  `json:"Proof"`
 
 	PayloadInfo *DIDPayloadInfo
 }

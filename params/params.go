@@ -118,6 +118,7 @@ var MainNetParams = config.Params{
 	CRClaimDPOSNodeStartHeight:  751400,
 	NewP2PProtocolVersionHeight: 751400,
 	CheckRegisterDIDHeight:      0,
+	VeriﬁableCredentialHeight:   0, //todo
 	RewardMinerOnlyStartHeight:  410500,
 	RPCServiceLevel:             config.ConfigurationPermitted.String(),
 }
@@ -143,6 +144,7 @@ func testNetParams(cfg config.Params) config.Params {
 	cfg.CRClaimDPOSNodeStartHeight = 646900
 	cfg.NewP2PProtocolVersionHeight = 340000
 	cfg.CheckRegisterDIDHeight = 528000
+	cfg.VeriﬁableCredentialHeight = 420000
 	cfg.RewardMinerOnlyStartHeight = 340000
 	return cfg
 }
@@ -162,6 +164,8 @@ func regNetParams(cfg config.Params) config.Params {
 	cfg.CRClaimDPOSNodeStartHeight = 532650
 	cfg.NewP2PProtocolVersionHeight = 203200
 	cfg.CheckRegisterDIDHeight = 528000
+	cfg.VeriﬁableCredentialHeight = 420000
+
 	cfg.RewardMinerOnlyStartHeight = 205000
 	return cfg
 }

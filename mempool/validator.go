@@ -293,6 +293,7 @@ func (v *validator) getLastDIDTxData(issuerDID string) (*id.TranasactionData, er
 	}
 	return lastTXData, nil
 }
+
 func (v *validator) getIssuerPublicKey(issuerDID, idURI string) ([]byte, error) {
 	var publicKey []byte
 	if txData, err := v.getLastDIDTxData(issuerDID); err != nil {
@@ -301,14 +302,11 @@ func (v *validator) getIssuerPublicKey(issuerDID, idURI string) ([]byte, error) 
 		if txData == nil {
 			return nil, errors.New("LEVELDB NOT FIND issuerDID TX DATA")
 		}
-		pubKeyStr := getPublicKey(txData.Operation.Proof.VerificationMethod, txData.Operation.PayloadInfo)
+		pubKeyStr := getPublicKey(idURI, txData.Operation.PayloadInfo)
 		if pubKeyStr == "" {
 			return []byte{}, errors.New("NOT FIND PUBLIC KEY OF VerificationMethod")
 		}
-		publicKey, err = common.HexStringToBytes(pubKeyStr)
-		if err != nil {
-			return nil, err
-		}
+		publicKey = base58.Decode(pubKeyStr)
 	}
 	return publicKey, nil
 }
@@ -316,22 +314,51 @@ func (v *validator) getIssuerPublicKey(issuerDID, idURI string) ([]byte, error) 
 func (v *validator) checkVeriﬁableCredential(payloadInfo *id.DIDPayloadInfo) error {
 	var issuerPublicKey, issuerCode, signature []byte
 	var err error
+
 	for _, cridential := range payloadInfo.VerifiableCredential {
-		//get issuer public key
-		if issuerPublicKey, err = v.getIssuerPublicKey(cridential.Issuer, cridential.ID); err != nil {
-			return err
+		realIssuer := cridential.Issuer
+		proof := cridential.GetDIDProofInfo()
+		if cridential.Issuer == "" {
+			creSub := cridential.CredentialSubject.(map[string]interface{})
+			for k, v := range creSub {
+				if k == id.ID_STRING {
+					realIssuer = v.(string)
+					break
+				}
+			}
+			if realIssuer == "" {
+				realIssuer = payloadInfo.ID
+			}
+			if issuerPublicKey, err = v.getIssuerPublicKey(realIssuer, proof.VerificationMethod); err != nil {
+				return err
+			}
+
+		} else {
+			//get issuer public key
+			if issuerPublicKey, err = v.getIssuerPublicKey(realIssuer, proof.VerificationMethod); err != nil {
+				if realIssuer == payloadInfo.ID {
+					pubKeyStr := getPublicKey(proof.VerificationMethod, payloadInfo)
+					if pubKeyStr == "" {
+						return errors.New("NOT FIND PUBLIC KEY OF VerificationMethod")
+					}
+					issuerPublicKey = base58.Decode(pubKeyStr)
+				} else {
+					return err
+				}
+			}
 		}
 		if issuerCode, err = getCodeByPubKey(issuerPublicKey); err != nil {
 			return err
 		}
 		//get signature
-		if signature, err = base64url.DecodeString(cridential.Proof.Signature); err != nil {
+		if signature, err = base64url.DecodeString(proof.Signature); err != nil {
 			return err
 		}
 
+		cridential.VerifiableCredentialData.CompleteCompact(payloadInfo.ID)
 		// verify proof
 		var success bool
-		success, err = v.VerifyByVM(&cridential, issuerCode, signature)
+		success, err = v.VerifyByVM(cridential.VerifiableCredentialData, issuerCode, signature)
 		if err != nil {
 			return err
 		}
@@ -531,7 +558,8 @@ func (v *validator) checkRegisterDID(txn *types.Transaction) error {
 		payloadDidInfo.PayloadInfo.ID); err != nil {
 		return err
 	}
-	if v.Store.GetHeight() < v.GetParams().CheckRegisterDIDHeight {
+	localCurrentHeight := v.Store.GetHeight()
+	if localCurrentHeight < v.GetParams().CheckRegisterDIDHeight {
 		if err := v.checkVerificationMethodV0(&payloadDidInfo.Proof,
 			payloadDidInfo.PayloadInfo); err != nil {
 			return err
@@ -568,9 +596,10 @@ func (v *validator) checkRegisterDID(txn *types.Transaction) error {
 	if !success {
 		return errors.New("[VM] Check Sig FALSE")
 	}
-
-	if err = v.checkVeriﬁableCredential(payloadDidInfo.PayloadInfo); err != nil {
-		return err
+	if localCurrentHeight >= v.GetParams().VeriﬁableCredentialHeight {
+		if err = v.checkVeriﬁableCredential(payloadDidInfo.PayloadInfo); err != nil {
+			return err
+		}
 	}
 	return nil
 }
