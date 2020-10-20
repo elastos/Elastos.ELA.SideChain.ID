@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	bc "github.com/elastos/Elastos.ELA.SideChain.ID/blockchain"
+	"github.com/elastos/Elastos.ELA.SideChain.ID/didjson"
 	"github.com/elastos/Elastos.ELA.SideChain.ID/params"
 	"github.com/elastos/Elastos.ELA.SideChain.ID/types"
 	"github.com/elastos/Elastos.ELA.SideChain.ID/types/base64url"
@@ -140,11 +141,11 @@ func (s *txValidatorTestSuite) TestIDChainStore_CreateDIDTx() {
 	s.NoError(err)
 
 	info := new(types.Operation)
-	json.Unmarshal(didPayloadInfoBytes, info)
+	didjson.Unmarshal(didPayloadInfoBytes, info)
 
 	payloadBase64, _ := base64url.DecodeString(info.Payload)
 	payloadInfo := new(types.DIDPayloadInfo)
-	json.Unmarshal(payloadBase64, payloadInfo)
+	didjson.Unmarshal(payloadBase64, payloadInfo)
 	info.PayloadInfo = payloadInfo
 
 	tx.Payload = info
@@ -164,11 +165,11 @@ func (s *txValidatorTestSuite) TestIDChainStore_CreateDIDTx() {
 	s.NoError(err)
 
 	info = new(types.Operation)
-	json.Unmarshal(errDIDPayloadInfoBytes, info)
+	didjson.Unmarshal(errDIDPayloadInfoBytes, info)
 
 	payloadBase64, _ = base64url.DecodeString(info.Payload)
 	payloadInfo = new(types.DIDPayloadInfo)
-	json.Unmarshal(payloadBase64, payloadInfo)
+	didjson.Unmarshal(payloadBase64, payloadInfo)
 	info.PayloadInfo = payloadInfo
 
 	tx.Payload = info
@@ -188,7 +189,7 @@ func (s *txValidatorTestSuite) TestGetIDFromUri() {
 
 func getPayloadCreateDID() *types.Operation {
 	info := new(types.DIDPayloadInfo)
-	json.Unmarshal(didPayloadBytes, info)
+	didjson.Unmarshal(didPayloadBytes, info)
 
 	p := &types.Operation{
 		Header: types.DIDHeaderInfo{
@@ -211,7 +212,7 @@ func getPayloadCreateDID() *types.Operation {
 
 func getPayloadUpdateDID() *types.Operation {
 	info := new(types.DIDPayloadInfo)
-	json.Unmarshal(didPayloadBytes, info)
+	didjson.Unmarshal(didPayloadBytes, info)
 
 	return &types.Operation{
 		Header: types.DIDHeaderInfo{
@@ -303,11 +304,11 @@ func getDIDPayloadBytes(id string) []byte {
 							"issuanceDate":"2020-01-03T06:08:20Z",
 							"expirationDate":"2025-01-03T06:08:20Z",
 							"credentialSubject":{
-								"id":"did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym",
+								"name":"John",
 								"email":"john@example.com",
 								"gender":"Male",
+								"id":"did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym",
 								"language":"English",
-								"name":"John",
 								"nation":"Singapore",
 								"twitter":"@john"
 							},

@@ -9,6 +9,7 @@ import (
 
 	"github.com/elastos/Elastos.ELA/common"
 
+	"github.com/elastos/Elastos.ELA.SideChain.ID/didjson"
 	"github.com/elastos/Elastos.ELA.SideChain.ID/types/base64url"
 )
 
@@ -183,7 +184,7 @@ type VerifiableCredential struct {
 }
 
 func (p *VerifiableCredential) GetData() []byte {
-	data, err := json.Marshal(p)
+	data, err := didjson.Marshal(p)
 	if err != nil {
 		return nil
 	}
