@@ -73,26 +73,296 @@ const (
 	operationUpdate   = "update"
 )
 
+var id1DocBytes = []byte(`{
+    "id":"did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym",
+    "publicKey":[
+        {
+            "id":"#key2",
+            "publicKeyBase58":"dKbbpc3puwSUYeTX9aaM2DjRSVDLkMyy4Zz1hbz2Ge8t"
+        },
+        {
+            "id":"#key3",
+            "publicKeyBase58":"24UaJdNL9hDrVBXVx8Nm2ZV8CjCgBtPKepmtaJpMyuDH5"
+        },
+        {
+            "id":"#primary",
+            "publicKeyBase58":"2BhWFosWHCKtBQpsPD3QZUY4NwCzavKdZEh6HfQDhciAY"
+        },
+        {
+            "id":"#recovery",
+            "controller":"did:elastos:icBjfJHqyZS6imZrfPp13PR1Ff8BX3Er5W",
+            "publicKeyBase58":"24GeN7qnYJrfCHAsgQKqHbKKkiq7b2zMWNeMycvrZANzK"
+        }
+    ],
+    "authentication":[
+        "#key2",
+        "#key3",
+        "#primary"
+    ],
+    "authorization":[
+        "#recovery"
+    ],
+    "verifiableCredential":[
+        {
+            "id":"#email",
+            "type":[
+                "BasicProfileCredential",
+                "EmailCredential",
+                "InternetAccountCredential"
+            ],
+            "issuer":"did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB",
+            "issuanceDate":"2020-01-03T06:08:20Z",
+            "expirationDate":"2025-01-03T06:08:20Z",
+            "credentialSubject":{
+                "email":"john@example.com"
+            },
+            "proof":{
+                "verificationMethod":"#primary",
+                "signature":"uNqJdVuU279eLyaa400nKGxwHTkRZ1bWKiy9Ro-DXwc92rS-qP24dMiLkijfh1hS1YEwCOUXzbRpFXhwg5dv9g"
+            }
+        },
+        {
+            "id":"#profile",
+            "type":[
+                "BasicProfileCredential",
+                "SelfProclaimedCredential"
+            ],
+            "issuanceDate":"2020-01-03T06:08:20Z",
+            "expirationDate":"2025-01-03T06:08:20Z",
+            "credentialSubject":{
+                "email":"john@example.com",
+                "gender":"Male",
+                "language":"English",
+                "name":"John",
+                "nation":"Singapore",
+                "twitter":"@john"
+            },
+            "proof":{
+                "verificationMethod":"#primary",
+                "signature":"IU7Mq2Wtu01-0jIQ_b3p_KlV8npUGpVlcSiJi6N6g3re4rUpEqysIjwprkiWFhqCChgejkwntCIlRvWk6PWkpA"
+            }
+        }
+    ],
+    "service":[
+        {
+            "id":"#carrier",
+            "type":"CarrierAddress",
+            "serviceEndpoint":"carrier://X2tDd1ZTErwnHNot8pTdhp7C7Y9FxMPGD8ppiasUT4UsHH2BpF1d"
+        },
+        {
+            "id":"#openid",
+            "type":"OpenIdConnectVersion1.0Service",
+            "serviceEndpoint":"https://openid.example.com/"
+        },
+        {
+            "id":"#vcr",
+            "type":"CredentialRepositoryService",
+            "serviceEndpoint":"https://did.example.com/credentials"
+        }
+    ],
+    "expires":"2025-01-03T06:08:19Z",
+    "proof":{
+        "created":"2020-01-03T06:08:20Z",
+        "signatureValue":"GQhan_vGTSn6mYkhBySjp59aUGolwuckGbKzGli7l3CJpPOKWJQQwqjt-tStGMKUHl5sXuCxunYQEYQhXFxsAQ"
+    }
+}`)
+
+//issuer.compact.json
+var id2DocBytes = []byte(`
+{
+    "id":"did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB",
+    "publicKey":[
+        {
+            "id":"#primary",
+            "publicKeyBase58":"h1dCDSmhCqAky4hJa3M8oG69REGGmJyhvjQWF7N4V4U2"
+        }
+    ],
+    "authentication":[
+        "#primary"
+    ],
+    "verifiableCredential":[
+        {
+            "id":"#profile",
+            "type":[
+                "BasicProfileCredential",
+                "SelfProclaimedCredential"
+            ],
+            "issuanceDate":"2020-01-03T06:08:19Z",
+            "expirationDate":"2025-01-03T06:08:19Z",
+            "credentialSubject":{
+                "email":"issuer@example.com",
+                "language":"English",
+                "name":"Test Issuer",
+                "nation":"Singapore"
+            },
+            "proof":{
+                "verificationMethod":"#primary",
+                "signature":"5efSlIyxSihDBD1mAMjs8BFimzNaFeweWTfGUgzz3ge8LBvCVSJWw_KBLHcBXy8nSPrgwQmtCcHJPjFGTObIug"
+            }
+        }
+    ],
+    "expires":"2025-01-03T06:08:19Z",
+    "proof":{
+        "created":"2020-01-03T06:08:19Z",
+        "signatureValue":"JDKKxtSAgOHrrUh1ahAHfmvnLeN75mHq3LD-dYGBSYMUORpLTW537ZLLDKAHECiCTPSOS9jyUXt3NMnBt81Qmw"
+    }
+}
+`)
+
+//issuer.json
+var id3DocBytes = []byte(`
+{
+  "id" : "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB",
+  "publicKey" : [ {
+    "id" : "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB#primary",
+    "type" : "ECDSAsecp256r1",
+    "controller" : "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB",
+    "publicKeyBase58" : "h1dCDSmhCqAky4hJa3M8oG69REGGmJyhvjQWF7N4V4U2"
+  } ],
+  "authentication" : [ "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB#primary" ],
+  "verifiableCredential" : [ {
+    "id" : "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB#profile",
+    "type" : [ "BasicProfileCredential", "SelfProclaimedCredential" ],
+    "issuer" : "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB",
+    "issuanceDate" : "2020-01-03T06:08:19Z",
+    "expirationDate" : "2025-01-03T06:08:19Z",
+    "credentialSubject" : {
+      "id" : "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB",
+      "email" : "issuer@example.com",
+      "language" : "English",
+      "name" : "Test Issuer",
+      "nation" : "Singapore"
+    },
+    "proof" : {
+      "type" : "ECDSAsecp256r1",
+      "verificationMethod" : "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB#primary",
+      "signature" : "5efSlIyxSihDBD1mAMjs8BFimzNaFeweWTfGUgzz3ge8LBvCVSJWw_KBLHcBXy8nSPrgwQmtCcHJPjFGTObIug"
+    }
+  } ],
+  "expires" : "2025-01-03T06:08:19Z",
+  "proof" : {
+    "type" : "ECDSAsecp256r1",
+    "created" : "2020-01-03T06:08:19Z",
+    "creator" : "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB#primary",
+    "signatureValue" : "JDKKxtSAgOHrrUh1ahAHfmvnLeN75mHq3LD-dYGBSYMUORpLTW537ZLLDKAHECiCTPSOS9jyUXt3NMnBt81Qmw"
+  }
+}
+`)
 var didPayloadBytes = []byte(
 	`{
-        "id" : "did:elastos:iTWqanUovh3zHfnExGaan4SJAXG3DCZC6j",
-        "publicKey":[{ "id": "did:elastos:iTWqanUovh3zHfnExGaan4SJAXG3DCZC6j#default",
-                       "type":"ECDSAsecp256r1",
-                       "controller":"did:elastos:icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN",
-                       "publicKeyBase58":"zxt6NyoorFUFMXA8mDBULjnuH3v6iNdZm42PyG4c1YdC"
-                      }
-                    ],
-        "authentication":["did:elastos:icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN#default",
-                          {
-                               "id": "did:elastos:icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN#default",
-                               "type":"ECDSAsecp256r1",
-                               "controller":"did:elastos:icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN",
-                               "publicKeyBase58":"zNxoZaZLdackZQNMas7sCkPRHZsJ3BtdjEvM2y5gNvKJ"
-                           }
-                         ],
-        "authorization":["did:elastos:icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN#default"],
-        "expires" : "2023-02-10T17:00:00Z"
-	}`)
+    "id":"did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym",
+    "publicKey":[
+        {
+            "id":"#key2",
+            "publicKeyBase58":"dKbbpc3puwSUYeTX9aaM2DjRSVDLkMyy4Zz1hbz2Ge8t"
+        },
+        {
+            "id":"#key3",
+            "publicKeyBase58":"24UaJdNL9hDrVBXVx8Nm2ZV8CjCgBtPKepmtaJpMyuDH5"
+        },
+        {
+            "id":"#primary",
+            "publicKeyBase58":"2BhWFosWHCKtBQpsPD3QZUY4NwCzavKdZEh6HfQDhciAY"
+        },
+        {
+            "id":"#recovery",
+            "controller":"did:elastos:icBjfJHqyZS6imZrfPp13PR1Ff8BX3Er5W",
+            "publicKeyBase58":"24GeN7qnYJrfCHAsgQKqHbKKkiq7b2zMWNeMycvrZANzK"
+        }
+    ],
+    "authentication":[
+        "#key2",
+        "#key3",
+        "#primary"
+    ],
+    "authorization":[
+        "#recovery"
+    ],
+    "verifiableCredential":[
+        {
+            "id":"#email",
+            "type":[
+                "BasicProfileCredential",
+                "EmailCredential",
+                "InternetAccountCredential"
+            ],
+            "issuer":"did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB",
+            "issuanceDate":"2020-01-03T06:08:20Z",
+            "expirationDate":"2025-01-03T06:08:20Z",
+            "credentialSubject":{
+                "email":"john@example.com"
+            },
+            "proof":{
+                "verificationMethod":"#primary",
+                "signature":"uNqJdVuU279eLyaa400nKGxwHTkRZ1bWKiy9Ro-DXwc92rS-qP24dMiLkijfh1hS1YEwCOUXzbRpFXhwg5dv9g"
+            }
+        },
+        {
+            "id":"#profile",
+            "type":[
+                "BasicProfileCredential",
+                "SelfProclaimedCredential"
+            ],
+            "issuanceDate":"2020-01-03T06:08:20Z",
+            "expirationDate":"2025-01-03T06:08:20Z",
+            "credentialSubject":{
+                "email":"john@example.com",
+                "gender":"Male",
+                "language":"English",
+                "name":"John",
+                "nation":"Singapore",
+                "twitter":"@john"
+            },
+            "proof":{
+                "verificationMethod":"#primary",
+                "signature":"IU7Mq2Wtu01-0jIQ_b3p_KlV8npUGpVlcSiJi6N6g3re4rUpEqysIjwprkiWFhqCChgejkwntCIlRvWk6PWkpA"
+            }
+        }
+    ],
+    "service":[
+        {
+            "id":"#carrier",
+            "type":"CarrierAddress",
+            "serviceEndpoint":"carrier://X2tDd1ZTErwnHNot8pTdhp7C7Y9FxMPGD8ppiasUT4UsHH2BpF1d"
+        },
+        {
+            "id":"#openid",
+            "type":"OpenIdConnectVersion1.0Service",
+            "serviceEndpoint":"https://openid.example.com/"
+        },
+        {
+            "id":"#vcr",
+            "type":"CredentialRepositoryService",
+            "serviceEndpoint":"https://did.example.com/credentials"
+        }
+    ],
+    "expires":"2025-01-03T06:08:19Z",
+    "proof":{
+        "created":"2020-01-03T06:08:20Z",
+        "signatureValue":"GQhan_vGTSn6mYkhBySjp59aUGolwuckGbKzGli7l3CJpPOKWJQQwqjt-tStGMKUHl5sXuCxunYQEYQhXFxsAQ"
+    }
+}`)
+
+//var didPayloadBytes = []byte(
+//	`{
+//        "id" : "did:elastos:iTWqanUovh3zHfnExGaan4SJAXG3DCZC6j",
+//        "publicKey":[{ "id": "did:elastos:iTWqanUovh3zHfnExGaan4SJAXG3DCZC6j#default",
+//                       "type":"ECDSAsecp256r1",
+//                       "controller":"did:elastos:icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN",
+//                       "publicKeyBase58":"zxt6NyoorFUFMXA8mDBULjnuH3v6iNdZm42PyG4c1YdC"
+//                      }
+//                    ],
+//        "authentication":["did:elastos:icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN#default",
+//                          {
+//                               "id": "did:elastos:icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN#default",
+//                               "type":"ECDSAsecp256r1",
+//                               "controller":"did:elastos:icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN",
+//                               "publicKeyBase58":"zNxoZaZLdackZQNMas7sCkPRHZsJ3BtdjEvM2y5gNvKJ"
+//                           }
+//                         ],
+//        "authorization":["did:elastos:icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN#default"],
+//        "expires" : "2023-02-10T17:00:00Z"
+//	}`)
 
 //right
 var didPayloadInfoBytes = []byte(
@@ -177,6 +447,10 @@ func (s *txValidatorTestSuite) TestIDChainStore_CreateDIDTx() {
 	s.Error(err, "invalid Expires")
 }
 
+func (s *txValidatorTestSuite) TestDecodeBase58PrimaryKey() {
+
+}
+
 func (s *txValidatorTestSuite) TestGetIDFromUri() {
 	validUriFormat := "did:elastos:icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN"
 	id := s.validator.Store.GetDIDFromUri(validUriFormat)
@@ -237,8 +511,7 @@ func randomString() string {
 
 func getDIDPayloadBytes(id string) []byte {
 	return []byte(`
-				{
-					"id":"did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym",
+				{	"id":"did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym",
 					"publicKey":[
 						{
 							"id":"did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym#key2",
@@ -344,26 +617,27 @@ func getDIDPayloadBytes(id string) []byte {
 						"signatureValue":"GQhan_vGTSn6mYkhBySjp59aUGolwuckGbKzGli7l3CJpPOKWJQQwqjt-tStGMKUHl5sXuCxunYQEYQhXFxsAQ"
 					}
 				}
+
 								`)
 }
 
-func getPayloadDIDInfo(id string, didOperation string) *types.Operation {
-	pBytes := getDIDPayloadBytes(id)
+func getPayloadDIDInfo(id string, didOperation string, docBytes []byte, privateKeyStr string) *types.Operation {
+	//pBytes := getDIDPayloadBytes(id)
 	info := new(types.DIDPayloadInfo)
-	json.Unmarshal(pBytes, info)
+	json.Unmarshal(docBytes, info)
 	p := &types.Operation{
 		Header: types.DIDHeaderInfo{
 			Specification: "elastos/did/1.0",
 			Operation:     didOperation,
 		},
-		Payload: base64url.EncodeToString(pBytes),
+		Payload: base64url.EncodeToString(docBytes),
 		Proof: types.DIDProofInfo{
 			Type:               "ECDSAsecp256r1",
 			VerificationMethod: "did:elastos:" + id + "#primary",
 		},
 		PayloadInfo: info,
 	}
-	privateKey1 := base58.Decode("41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW")
+	privateKey1 := base58.Decode(privateKeyStr)
 	//privateKey1, _ := common.HexStringToBytes()
 	sign, _ := crypto.Sign(privateKey1, p.GetData())
 	p.Proof.Signature = base64url.EncodeToString(sign)
@@ -458,18 +732,46 @@ func (s *txValidatorTestSuite) TestGenrateTxFromRawTxStr() {
 }
 
 //didOperation must be create or update
-func getDIDTx(id, didOperation string) *types2.Transaction {
+func getDIDTx(id, didOperation string, docBytes []byte, privateKeyStr string) *types2.Transaction {
 
-	payloadDidInfo := getPayloadDIDInfo(id, didOperation)
+	payloadDidInfo := getPayloadDIDInfo(id, didOperation, docBytes, privateKeyStr)
 	txn := new(types2.Transaction)
 	txn.TxType = types.RegisterDID
 	txn.Payload = payloadDidInfo
 	return txn
 }
 
-//
-//func (s *txValidatorTestSuite) TestCheckRegisterDID() {
-//	tx := getDIDTx("did:elastocheckRegisterDIDs:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym", "crate")
-//	err := s.validator.checkRegisterDID(tx)
-//	s.NoError(err)
-//}
+func (s *txValidatorTestSuite) TestCheckRegisterDID() {
+
+	id1 := "did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnyms"
+	privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
+
+	id2 := "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
+	privateKey2Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
+
+	tx2 := getDIDTx(id2, "crate", id2DocBytes, privateKey2Str)
+	tx1 := getDIDTx(id1, "crate", id1DocBytes, privateKey1Str)
+
+	batch := s.validator.Store.NewBatch()
+	err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"), tx2,
+		100, 123456)
+	s.NoError(err1)
+	batch.Commit()
+
+	err2 := s.validator.checkRegisterDID(tx1)
+	s.NoError(err2)
+}
+
+//issuer.json SelfProclaimedCredential
+func (s *txValidatorTestSuite) TestSelfProclaimedCredential() {
+	privateKey3Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
+	id3 := "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
+
+	tx3 := getDIDTx(id3, "crate", id3DocBytes, privateKey3Str)
+	err3 := s.validator.checkRegisterDID(tx3)
+	s.NoError(err3)
+
+	tx3_2 := getDIDTx(id3, "crate", id2DocBytes, privateKey3Str)
+	err3_2 := s.validator.checkRegisterDID(tx3_2)
+	s.NoError(err3_2)
+}

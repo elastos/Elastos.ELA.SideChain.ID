@@ -60,6 +60,6 @@ func TestPayloadRegisterIdentification_Deserialize(t *testing.T) {
 
 	if payload2.Contents[0].Values[0].Proof != "testproof1" ||
 		payload2.Contents[1].Values[0].Proof != "testproof2" {
-		t.Error("ID content values proof deserialize error!")
+		t.Error("ID content values Proof deserialize error!")
 	}
 }

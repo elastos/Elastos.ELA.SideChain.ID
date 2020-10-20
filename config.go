@@ -73,6 +73,7 @@ type configParams struct {
 	CRClaimDPOSNodeStartHeight  uint32
 	NewP2PProtocolVersionHeight uint64
 	RewardMinerOnlyStartHeight  uint32
+	VeriﬁableCredentialHeight   uint32
 }
 
 // loadConfigFile read configuration parameters through the config.json file.
@@ -155,6 +156,9 @@ func loadConfig() *configParams {
 	}
 	if cfg.InstantBlock {
 		params.InstantBlock(activeNetParams)
+	}
+	if cfg.VeriﬁableCredentialHeight > 0 {
+		activeNetParams.VeriﬁableCredentialHeight = cfg.VeriﬁableCredentialHeight
 	}
 	if cfg.CRClaimDPOSNodeStartHeight > 0 {
 		activeNetParams.CRClaimDPOSNodeStartHeight = cfg.CRClaimDPOSNodeStartHeight
