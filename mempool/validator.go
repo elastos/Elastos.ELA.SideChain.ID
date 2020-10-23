@@ -13,6 +13,7 @@ import (
 
 	"github.com/elastos/Elastos.ELA.SideChain.ID/blockchain"
 	"github.com/elastos/Elastos.ELA.SideChain.ID/pact"
+	"github.com/elastos/Elastos.ELA.SideChain.ID/params"
 	id "github.com/elastos/Elastos.ELA.SideChain.ID/types"
 	"github.com/elastos/Elastos.ELA.SideChain.ID/types/base64url"
 	"github.com/elastos/Elastos.ELA.SideChain/mempool"
@@ -44,16 +45,17 @@ func CreateCRDIDContractByCode(code []byte) (*contract.Contract, error) {
 
 type validator struct {
 	*mempool.Validator
-
+	didParam      *params.DIDParams
 	systemAssetID common.Uint256
 	foundation    common.Uint168
 	spvService    *spv.Service
 	Store         *blockchain.IDChainStore
 }
 
-func NewValidator(cfg *mempool.Config, store *blockchain.IDChainStore) *mempool.Validator {
+func NewValidator(cfg *mempool.Config, store *blockchain.IDChainStore, didParams *params.DIDParams) *validator {
 	var val validator
 	val.Validator = mempool.NewValidator(cfg)
+	val.didParam = didParams
 	val.systemAssetID = cfg.ChainParams.ElaAssetId
 	val.foundation = cfg.ChainParams.Foundation
 	val.spvService = cfg.SpvService
@@ -64,7 +66,7 @@ func NewValidator(cfg *mempool.Config, store *blockchain.IDChainStore) *mempool.
 	val.RegisterContextFunc(mempool.FuncNames.CheckTransactionSignature, val.checkTransactionSignature)
 	val.RegisterContextFunc(CheckRegisterDIDFuncName, val.checkRegisterDID)
 
-	return val.Validator
+	return &val
 }
 
 func (v *validator) checkTransactionPayload(txn *types.Transaction) error {
@@ -559,7 +561,7 @@ func (v *validator) checkRegisterDID(txn *types.Transaction) error {
 		return err
 	}
 	localCurrentHeight := v.Store.GetHeight()
-	if localCurrentHeight < v.GetParams().CheckRegisterDIDHeight {
+	if localCurrentHeight < v.didParam.CheckRegisterDIDHeight {
 		if err := v.checkVerificationMethodV0(&payloadDidInfo.Proof,
 			payloadDidInfo.PayloadInfo); err != nil {
 			return err
@@ -596,7 +598,7 @@ func (v *validator) checkRegisterDID(txn *types.Transaction) error {
 	if !success {
 		return errors.New("[VM] Check Sig FALSE")
 	}
-	if localCurrentHeight >= v.GetParams().VeriﬁableCredentialHeight {
+	if localCurrentHeight >= v.didParam.VeriﬁableCredentialHeight {
 		if err = v.checkVeriﬁableCredential(payloadDidInfo.PayloadInfo); err != nil {
 			return err
 		}

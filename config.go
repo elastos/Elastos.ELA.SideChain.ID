@@ -26,6 +26,8 @@ var (
 	// activeNetParams defines the side chain network parameters.
 	activeNetParams = &params.MainNetParams
 
+	didParams = &params.MainNetDIDParams
+
 	// defaultConfig defines the default configuration parameters.
 	defaultConfig = configParams{
 		LogLevel: defaultLogLevel,
@@ -100,17 +102,19 @@ func loadConfig() *configParams {
 		testNetDefault(cfg)
 		spvNetParams = config.DefaultParams.TestNet()
 		activeNetParams = &params.TestNetParams
+		didParams = &params.TestNetDIDParams
 
 	case "regnet", "reg", "r":
 		regNetDefault(cfg)
 		spvNetParams = config.DefaultParams.RegNet()
 		activeNetParams = &params.RegNetParams
+		didParams = &params.RegNetDIDParams
 
 	default:
 		mainNetDefault(cfg)
 		spvNetParams = &config.DefaultParams
 		activeNetParams = &params.MainNetParams
-
+		didParams = &params.MainNetDIDParams
 	}
 
 	if cfg.Magic > 0 {
@@ -158,7 +162,7 @@ func loadConfig() *configParams {
 		params.InstantBlock(activeNetParams)
 	}
 	if cfg.VeriﬁableCredentialHeight > 0 {
-		activeNetParams.VeriﬁableCredentialHeight = cfg.VeriﬁableCredentialHeight
+		didParams.VeriﬁableCredentialHeight = cfg.VeriﬁableCredentialHeight
 	}
 	if cfg.CRClaimDPOSNodeStartHeight > 0 {
 		activeNetParams.CRClaimDPOSNodeStartHeight = cfg.CRClaimDPOSNodeStartHeight

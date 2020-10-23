@@ -32,10 +32,10 @@ import (
 const (
 	printStateInterval = time.Minute
 
-	DataPath = "elastos_did"
-	DataDir  = "data"
-	ChainDir = "chain"
-	SpvDir   = "spv"
+	DataPath   = "elastos_did"
+	DataDir    = "data"
+	ChainDir   = "chain"
+	SpvDir     = "spv"
 	nodePrefix = "did-"
 )
 
@@ -91,7 +91,7 @@ func main() {
 		PermanentPeers: cfg.SPVPermanentPeers,
 		GenesisAddress: genesisAddress,
 		FilterType:     filter.FTNexTTurnDPOSInfo,
-		NodeVersion:    nodePrefix+Version,
+		NodeVersion:    nodePrefix + Version,
 	}
 	spvService, err := spv.NewService(&spvCfg)
 	if err != nil {
@@ -110,8 +110,8 @@ func main() {
 	}
 	txFeeHelper := mempool.NewFeeHelper(&mempoolCfg)
 	mempoolCfg.FeeHelper = txFeeHelper
-	txValidator := mp.NewValidator(&mempoolCfg, idChainStore)
-	mempoolCfg.Validator = txValidator
+	txValidator := mp.NewValidator(&mempoolCfg, idChainStore, didParams)
+	mempoolCfg.Validator = txValidator.Validator
 
 	chainCfg := blockchain.Config{
 		ChainParams:    activeNetParams,
@@ -137,7 +137,7 @@ func main() {
 		TxMemPool:      txPool,
 		ChainParams:    activeNetParams,
 		PermanentPeers: cfg.PermanentPeers,
-		NodeVersion:    nodePrefix+Version,
+		NodeVersion:    nodePrefix + Version,
 	})
 	if err != nil {
 		eladlog.Fatalf("initialize P2P networks failed, %s", err)
@@ -155,7 +155,7 @@ func main() {
 		Chain:                     chain,
 		TxMemPool:                 txPool,
 		TxFeeHelper:               txFeeHelper,
-		Validator:                 txValidator,
+		Validator:                 txValidator.Validator,
 		CreateCoinBaseTx:          pow.CreateCoinBaseTx,
 		GenerateBlock:             pow.GenerateBlock,
 		GenerateBlockTransactions: pow.GenerateBlockTransactions,

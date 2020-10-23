@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"io/ioutil"
 	"strings"
 
 	"github.com/elastos/Elastos.ELA/common"
@@ -247,11 +248,20 @@ type DIDPayloadInfo struct {
 	Expires              string                 `json:"expires"`
 }
 
+func LoadJsonData(fileName string) ([]byte, error) {
+	fileData, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		return []byte{}, err
+	}
+	return fileData, nil
+
+}
+
 // payload of DID transaction
 type Operation struct {
 	Header  DIDHeaderInfo `json:"header"`
 	Payload string        `json:"payload"`
-	Proof   DIDProofInfo  `json:"Proof"`
+	Proof   DIDProofInfo  `json:"proof"`
 
 	PayloadInfo *DIDPayloadInfo
 }
