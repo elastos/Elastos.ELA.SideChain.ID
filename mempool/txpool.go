@@ -11,6 +11,7 @@ import (
 
 const SlotRegisterDID = "registerdid"
 const SlotDeactivateDID = "deactivatedid"
+const SlotCustomizedDID = "customizeddid"
 
 func New(cfg *memp.Config) *memp.TxPool {
 	txPool := memp.New(cfg)
@@ -24,11 +25,20 @@ func New(cfg *memp.Config) *memp.TxPool {
 		),
 	})
 	txPool.AddConflictSlot(&memp.Conflict{
-		Name: SlotDeactivateDID,
+		Name: SlotRegisterDID,
 		Slot: memp.NewConflictSlot(memp.Str,
 			memp.KeyTypeFuncPair{
 				Type: types.DeactivateDID,
 				Func: addDeactivateDIDTransactionHash,
+			},
+		),
+	})
+	txPool.AddConflictSlot(&memp.Conflict{
+		Name: SlotRegisterDID,
+		Slot: memp.NewConflictSlot(memp.Str,
+			memp.KeyTypeFuncPair{
+				Type: types.CustomizedDID,
+				Func: addCustomizedDIDTransactionHash,
 			},
 		),
 	})
@@ -58,4 +68,12 @@ func addDeactivateDIDTransactionHash(
 		did = deactivateDIDPayload.Payload
 	}
 	return did, nil
+}
+func addCustomizedDIDTransactionHash(
+	chain *blockchain.BlockChain, tx *sctype.Transaction) (interface{}, error) {
+	regPayload, ok := tx.Payload.(*types.CustomizedDIDOperation)
+	if !ok {
+		return nil, errors.New("convert the payload of register did tx failed")
+	}
+	return regPayload.GetPayloadInfo().ID, nil
 }
