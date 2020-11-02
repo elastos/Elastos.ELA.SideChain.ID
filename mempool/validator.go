@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -31,6 +32,7 @@ const (
 	CheckRegisterDIDFuncName   = "checkregisterdid"
 	CheckUpdateDIDFuncName     = "checkupdatedid"
 	CheckDeactivateDIDFuncName = "checkdeactivatedid"
+	CheckCustomizedDIDFuncName = "checkcustomizeddid"
 )
 const PrefixCRDID contract.PrefixType = 0x67
 
@@ -67,6 +69,7 @@ func NewValidator(cfg *mempool.Config, store *blockchain.IDChainStore, didParams
 	val.RegisterContextFunc(mempool.FuncNames.CheckTransactionSignature, val.checkTransactionSignature)
 	val.RegisterContextFunc(CheckRegisterDIDFuncName, val.checkRegisterDID)
 	val.RegisterContextFunc(CheckDeactivateDIDFuncName, val.checkDeactivateDID)
+	val.RegisterContextFunc(CheckCustomizedDIDFuncName, val.checkCustomizedDID)
 	return &val
 }
 
@@ -224,6 +227,90 @@ func (v *validator) checkVerificationMethodV0(proof *id.DIDProofInfo,
 	return errors.New("[ID checkVerificationMethodV0] wrong public key by VerificationMethod ")
 }
 
+func GetDIDAndCompactSymbolFromUri(idURI string) (string, string) {
+	index := strings.LastIndex(idURI, ":")
+	if index == -1 {
+		return "", ""
+	}
+	return idURI[0 : index+1], idURI[index+1:]
+}
+
+func IsMatched(publicKey []byte, did string) bool {
+
+	if didTemp, err := getDIDAddress(publicKey); err != nil {
+		return false
+	} else {
+		if didTemp != did {
+			return false
+		}
+		return true
+	}
+}
+
+//DIDProofInfo VerificationMethod must be in CustomizedDIDPayload Authentication or
+//is come from controller
+func (v *validator) checkCustomizedDIDVerificationMethod(proof *id.DIDProofInfo,
+	payloadInfo *id.CustomizedDIDPayload) error {
+	prefixDid, compactSymbol := GetDIDAndCompactSymbolFromUri(proof.VerificationMethod)
+
+	//1, check is proofUriSegment public key in Authentication. if it is in then check done
+	if prefixDid == "" || prefixDid == payloadInfo.ID {
+		//proofUriSegment---PublicKeyBase58 is in Authentication
+		for _, auth := range payloadInfo.Authentication {
+			switch auth.(type) {
+			case string:
+				keyString := auth.(string)
+				if compactSymbol == getUriSegment(keyString) {
+					return nil
+				}
+			case map[string]interface{}:
+				data, err := json.Marshal(auth)
+				if err != nil {
+					return err
+				}
+				didPublicKeyInfo := new(id.DIDPublicKeyInfo)
+				err = json.Unmarshal(data, didPublicKeyInfo)
+				if err != nil {
+					return err
+				}
+				if compactSymbol == getUriSegment(didPublicKeyInfo.ID) {
+					return nil
+				}
+			default:
+				return errors.New("[ID checkCustomizedDIDVerificationMethod] invalid  auth.(type)")
+			}
+		}
+	} else {
+		//2, check is proofUriSegment public key come from controller
+
+		if controllerArray, bControllerArray := payloadInfo.Controller.([]string); bControllerArray == true {
+			//2.1 is controller exist
+			for _, controller := range controllerArray {
+				if controller == prefixDid {
+					//get controllerDID last store data
+					TranasactionData, err := v.GetLastDIDTxData(prefixDid)
+					if err != nil {
+						return err
+					}
+					if TranasactionData == nil {
+						return errors.New("prefixDid DID not exist in level db")
+					}
+					// check if VerificationMethod related public key is default key
+					pubKeyBase58Str := getPublicKey(proof.VerificationMethod, payloadInfo.Authentication, payloadInfo.PublicKey)
+					if pubKeyBase58Str == "" {
+						return errors.New("checkCustomizedDIDVerificationMethod NOT FIND PUBLIC KEY OF VerificationMethod")
+					}
+					PublicKey := base58.Decode(pubKeyBase58Str)
+					if IsMatched(PublicKey, TranasactionData.Operation.PayloadInfo.ID) {
+						return nil
+					}
+				}
+			}
+		}
+	}
+	return errors.New("[ID checkVerificationMethodV1] wrong public key by VerificationMethod ")
+}
+
 //DIDProofInfo VerificationMethod must be in DIDPayloadInfo Authentication or
 //is did publickKey
 func (v *validator) checkVerificationMethodV1(proof *id.DIDProofInfo,
@@ -278,7 +365,7 @@ func (v *validator) checkVerificationMethodV1(proof *id.DIDProofInfo,
 	return errors.New("[ID checkVerificationMethodV1] wrong public key by VerificationMethod ")
 }
 
-func (v *validator) getLastDIDTxData(issuerDID string) (*id.TranasactionData, error) {
+func (v *validator) GetLastDIDTxData(issuerDID string) (*id.TranasactionData, error) {
 	did := v.Store.GetDIDFromUri(issuerDID)
 	if did == "" {
 		return nil, errors.New("WRONG DID FORMAT")
@@ -300,13 +387,14 @@ func (v *validator) getLastDIDTxData(issuerDID string) (*id.TranasactionData, er
 
 func (v *validator) getIssuerPublicKey(issuerDID, idURI string) ([]byte, error) {
 	var publicKey []byte
-	if txData, err := v.getLastDIDTxData(issuerDID); err != nil {
+	if txData, err := v.GetLastDIDTxData(issuerDID); err != nil {
 		return nil, err
 	} else {
 		if txData == nil {
 			return nil, errors.New("LEVELDB NOT FIND issuerDID TX DATA")
 		}
-		pubKeyStr := getPublicKey(idURI, txData.Operation.PayloadInfo)
+		payloadInfo := txData.Operation.PayloadInfo
+		pubKeyStr := getPublicKey(idURI, payloadInfo.Authentication, payloadInfo.PublicKey)
 		if pubKeyStr == "" {
 			return []byte{}, errors.New("NOT FIND PUBLIC KEY OF VerificationMethod")
 		}
@@ -315,11 +403,12 @@ func (v *validator) getIssuerPublicKey(issuerDID, idURI string) ([]byte, error) 
 	return publicKey, nil
 }
 
-func (v *validator) checkVeriﬁableCredential(payloadInfo *id.DIDPayloadInfo) error {
+func (v *validator) checkVeriﬁableCredential(ID string, VerifiableCredential []id.VerifiableCredential,
+	Authentication []interface{}, PublicKey []id.DIDPublicKeyInfo) error {
 	var issuerPublicKey, issuerCode, signature []byte
 	var err error
 
-	for _, cridential := range payloadInfo.VerifiableCredential {
+	for _, cridential := range VerifiableCredential {
 		realIssuer := cridential.Issuer
 		proof := cridential.GetDIDProofInfo()
 		if cridential.Issuer == "" {
@@ -331,7 +420,7 @@ func (v *validator) checkVeriﬁableCredential(payloadInfo *id.DIDPayloadInfo) e
 				}
 			}
 			if realIssuer == "" {
-				realIssuer = payloadInfo.ID
+				realIssuer = ID
 			}
 			if issuerPublicKey, err = v.getIssuerPublicKey(realIssuer, proof.VerificationMethod); err != nil {
 				return err
@@ -340,8 +429,8 @@ func (v *validator) checkVeriﬁableCredential(payloadInfo *id.DIDPayloadInfo) e
 		} else {
 			//get issuer public key
 			if issuerPublicKey, err = v.getIssuerPublicKey(realIssuer, proof.VerificationMethod); err != nil {
-				if realIssuer == payloadInfo.ID {
-					pubKeyStr := getPublicKey(proof.VerificationMethod, payloadInfo)
+				if realIssuer == ID {
+					pubKeyStr := getPublicKey(proof.VerificationMethod, Authentication, PublicKey)
 					if pubKeyStr == "" {
 						return errors.New("NOT FIND PUBLIC KEY OF VerificationMethod")
 					}
@@ -358,8 +447,8 @@ func (v *validator) checkVeriﬁableCredential(payloadInfo *id.DIDPayloadInfo) e
 		if signature, err = base64url.DecodeString(proof.Signature); err != nil {
 			return err
 		}
-
-		cridential.VerifiableCredentialData.CompleteCompact(payloadInfo.ID)
+		//payloadInfo.ID
+		cridential.VerifiableCredentialData.CompleteCompact(ID)
 		// verify proof
 		var success bool
 		success, err = v.VerifyByVM(cridential.VerifiableCredentialData, issuerCode, signature)
@@ -465,15 +554,15 @@ func getAuthorizatedPublicKey(proof *id.DIDProofInfo, payloadInfo *id.DIDPayload
 	return ""
 }
 
-func getPublicKey(VerificationMethod string, payloadInfo *id.DIDPayloadInfo) string {
+func getPublicKey(VerificationMethod string, Authentication []interface{}, PublicKey []id.DIDPublicKeyInfo) string {
 	proofUriSegment := getUriSegment(VerificationMethod)
 
-	for _, pkInfo := range payloadInfo.PublicKey {
+	for _, pkInfo := range PublicKey {
 		if proofUriSegment == getUriSegment(pkInfo.ID) {
 			return pkInfo.PublicKeyBase58
 		}
 	}
-	for _, auth := range payloadInfo.Authentication {
+	for _, auth := range Authentication {
 		switch auth.(type) {
 		case map[string]interface{}:
 			data, err := json.Marshal(auth)
@@ -589,6 +678,188 @@ func (v *validator) checkDIDOperation(header *id.DIDHeaderInfo,
 	return nil
 }
 
+//check operateion create---->db must not have
+//                 update----->db must have
+func (v *validator) checkCustomizedDIDOperation(header *id.CustomizedDIDHeaderInfo,
+	idUri string) error {
+	//did := v.Store.GetDIDFromUri(idUri)
+	//if did == "" {
+	//	return errors.New("WRONG DID FORMAT")
+	//}
+
+	buf := new(bytes.Buffer)
+	buf.WriteString(idUri)
+	lastTXData, err := v.Store.GetLastDIDTxData(buf.Bytes())
+
+	dbExist := true
+	if err != nil {
+		if err.Error() == leveldb.ErrNotFound.Error() {
+			dbExist = false
+		} else {
+			return err
+		}
+	}
+	if dbExist {
+		if header.Operation == id.Create_Customized_DID_Operation {
+			return errors.New("Customized DID WRONG OPERATION ALREADY EXIST")
+		} else if header.Operation == id.Update_Customized_DID_Operation {
+			//check PreviousTxid
+			hash, err := common.Uint256FromHexString(header.PreviousTxid)
+			if err != nil {
+				return err
+			}
+			preTXID := service.ToReversedString(*hash)
+
+			if lastTXData.TXID != preTXID {
+				return errors.New("Customized DID PreviousTxid IS NOT CORRECT")
+			}
+		}
+	} else {
+		if header.Operation == id.Update_Customized_DID_Operation {
+			return errors.New("Customized DID WRONG OPERATION NOT EXIST")
+		}
+	}
+	return nil
+}
+
+func GetMultisignMN(mulstiSign string) (int, int, error) {
+	index := strings.LastIndex(mulstiSign, ":")
+	if index == -1 {
+		return 0, 0, errors.New("mulstiSign did not have :")
+	}
+	M, err := strconv.Atoi(mulstiSign[0 : index+1])
+	if err != nil {
+		return 0, 0, err
+	}
+	N, err := strconv.Atoi(mulstiSign[index+1:])
+	if err != nil {
+		return 0, 0, err
+	}
+	return M, N, nil
+}
+
+func (v *validator) checkCustomizedDID(txn *types.Transaction) error {
+	//payload type check
+	if txn.TxType != id.CustomizedDID {
+		return nil
+	}
+	payloadDidInfo, ok := txn.Payload.(*id.CustomizedDIDOperation)
+	if !ok {
+		return errors.New("invalid CustomizedDIDOperation")
+	}
+
+	_, err := time.Parse(time.RFC3339, payloadDidInfo.GetPayloadInfo().Expires)
+	if err != nil {
+		return errors.New("invalid Expires")
+	}
+
+	if err := v.checkCustomizedDIDOperation(&payloadDidInfo.Header,
+		payloadDidInfo.GetPayloadInfo().ID); err != nil {
+		return err
+	}
+
+	//todo 这个custoized did 在registerdid中不能存在， 在registerdid 跟customized did互斥
+	//检查expires todo
+
+	//localCurrentHeight := v.Store.GetHeight()
+	//
+	var DIDProofArray []id.DIDProofInfo
+	var CustomizedDIDProof id.DIDProofInfo
+	bDIDProofArray := false
+	if DIDProofArray, bDIDProofArray = payloadDidInfo.Proof.([]id.DIDProofInfo); bDIDProofArray == true {
+		for _, CustomizedDIDProof := range DIDProofArray {
+			if err := v.checkCustomizedDIDVerificationMethod(&CustomizedDIDProof,
+				payloadDidInfo.GetPayloadInfo()); err != nil {
+				return err
+			}
+		}
+	} else if CustomizedDIDProof, ok := payloadDidInfo.Proof.(id.DIDProofInfo); ok == true {
+		if err := v.checkCustomizedDIDVerificationMethod(&CustomizedDIDProof,
+			payloadDidInfo.GetPayloadInfo()); err != nil {
+			return err
+		}
+	} else {
+		//error
+		return errors.New("Invalid Proof type")
+	}
+	//proof object
+	if bDIDProofArray == false {
+		DIDProofArray = append(DIDProofArray, CustomizedDIDProof)
+	}
+	curPayloadInfo := payloadDidInfo.GetPayloadInfo()
+	var verifyPayloadinfo *id.CustomizedDIDPayload
+	//M,
+	var N, verifyOkCount int
+
+	//todo 如果是create则以这次的m/n和公钥验证，否则以上一次的数据记录m/n
+	if payloadDidInfo.Header.Operation == id.Create_Customized_DID_Operation {
+		verifyPayloadinfo = curPayloadInfo
+		_, N, err = GetMultisignMN(payloadDidInfo.Header.Multisign)
+		if err != nil {
+			return err
+		}
+	} else {
+		did := v.Store.GetDIDFromUri(payloadDidInfo.GetPayloadInfo().ID)
+		if did == "" {
+			return errors.New("WRONG DID FORMAT")
+		}
+
+		buf := new(bytes.Buffer)
+		buf.WriteString(did)
+		transactionData, err := v.Store.GetLastCustomizedDIDTxData(buf.Bytes())
+		if err != nil {
+			return err
+		}
+		verifyPayloadinfo = transactionData.Operation.GetPayloadInfo()
+		_, N, err = GetMultisignMN(transactionData.Operation.Header.Multisign)
+		if err != nil {
+			return err
+		}
+	}
+	//遍历每一个proof 根据m/n进行验签的
+	for _, CustomizedDIDProof := range DIDProofArray {
+		//get  public key
+		//todo
+		publicKeyBase58 := getPublicKey(CustomizedDIDProof.VerificationMethod,
+			verifyPayloadinfo.Authentication, verifyPayloadinfo.PublicKey)
+		if publicKeyBase58 == "" {
+			return errors.New("Not find proper publicKeyBase58")
+		}
+		//get code
+		//var publicKeyByte []byte
+		publicKeyByte := base58.Decode(publicKeyBase58)
+
+		//var code []byte
+		code, err := getCodeByPubKey(publicKeyByte)
+		if err != nil {
+			return err
+		}
+		signature, _ := base64url.DecodeString(CustomizedDIDProof.Signature)
+
+		var success bool
+		success, err = v.VerifyByVM(payloadDidInfo, code, signature)
+
+		if err != nil {
+			return err
+		}
+		if !success {
+			return errors.New("[VM] Check Sig FALSE")
+		}
+		verifyOkCount++
+	}
+	if verifyOkCount < N {
+		return errors.New("[VM] Check Sig FALSE verifyOkCount < N")
+	}
+
+	//todo 是否需要考虑用前一个交易的公钥啥的？
+	if err = v.checkVeriﬁableCredential(curPayloadInfo.ID, curPayloadInfo.VerifiableCredential,
+		curPayloadInfo.Authentication, curPayloadInfo.PublicKey); err != nil {
+		return err
+	}
+	return nil
+
+}
+
 func (v *validator) checkRegisterDID(txn *types.Transaction) error {
 	//payload type check
 	if txn.TxType != id.RegisterDID {
@@ -623,7 +894,7 @@ func (v *validator) checkRegisterDID(txn *types.Transaction) error {
 
 	//get  public key
 	publicKeyBase58 := getPublicKey(payloadDidInfo.Proof.VerificationMethod,
-		payloadDidInfo.PayloadInfo)
+		payloadDidInfo.PayloadInfo.Authentication, payloadDidInfo.PayloadInfo.PublicKey)
 	if publicKeyBase58 == "" {
 		return errors.New("Not find proper publicKeyBase58")
 	}
@@ -647,7 +918,9 @@ func (v *validator) checkRegisterDID(txn *types.Transaction) error {
 		return errors.New("checkRegisterDID [VM]  Check Sig FALSE")
 	}
 	if localCurrentHeight >= v.didParam.VeriﬁableCredentialHeight {
-		if err = v.checkVeriﬁableCredential(payloadDidInfo.PayloadInfo); err != nil {
+		payloadInfo := payloadDidInfo.PayloadInfo
+		if err = v.checkVeriﬁableCredential(payloadInfo.ID, payloadInfo.VerifiableCredential,
+			payloadInfo.Authentication, payloadInfo.PublicKey); err != nil {
 			return err
 		}
 	}
