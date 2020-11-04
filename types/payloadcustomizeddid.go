@@ -236,6 +236,7 @@ type CustomizedDIDPayload struct {
 	Expires              string                 `json:"expires"`
 	// []CustomizedDIDProofInfo interface
 	//Proof interface{} `json:"proof"`
+	Proof CustomizedDIDProofInfo `json:"proof"`
 }
 
 // payload of DID transaction
@@ -245,7 +246,7 @@ type CustomizedDIDOperation struct {
 	// DIDProofInfo
 	Proof interface{} `json:"proof"`
 
-	payloadInfo *CustomizedDIDPayload
+	PayloadInfo *CustomizedDIDPayload
 }
 
 type CustomizedDIDTranasactionData struct {
@@ -272,7 +273,7 @@ func (p *CustomizedDIDTranasactionData) Serialize(w io.Writer, version byte) err
 }
 
 func (p *CustomizedDIDOperation) GetPayloadInfo() *CustomizedDIDPayload {
-	return p.payloadInfo
+	return p.PayloadInfo
 }
 
 func (p *CustomizedDIDOperation) Data(version byte) []byte {
@@ -363,7 +364,7 @@ func (p *CustomizedDIDOperation) Deserialize(r io.Reader, version byte) error {
 	if err := json.Unmarshal(pBytes, payloadInfo); err != nil {
 		return errors.New("[DIDInfo], payload unmarshal failed")
 	}
-	p.payloadInfo = payloadInfo
+	p.PayloadInfo = payloadInfo
 	return nil
 }
 

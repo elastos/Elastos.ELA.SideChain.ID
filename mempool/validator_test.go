@@ -80,15 +80,23 @@ const (
 )
 
 var (
-	id1DocByts []byte
-	id2DocByts []byte
-	id3DocByts []byte
+	id1DocByts             []byte
+	id2DocByts             []byte
+	id3DocByts             []byte
+	customizedDIDDocBytes1 []byte
+	customizedDIDDocBytes2 []byte
 )
 
 func init() {
 	id1DocByts, _ = types.LoadJsonData("./testdata/document.compact.json")
 	id2DocByts, _ = types.LoadJsonData("./testdata/issuer.compact.json")
 	id3DocByts, _ = types.LoadJsonData("./testdata/issuer.json")
+	customizedDIDDocBytes1, _ = types.LoadJsonData("./testdata/customized_did_single_sign.json")
+	customizedDIDDocBytes2, _ = types.LoadJsonData("./testdata/customized_did_multi_sign.json")
+
+	fmt.Println("customizedDIDDocBytes1", string(customizedDIDDocBytes1))
+	fmt.Println("customizedDIDDocBytes2", string(customizedDIDDocBytes2))
+
 }
 
 var didPayloadBytes = []byte(
@@ -370,6 +378,71 @@ func getPayloadDIDInfo(id string, didOperation string, docBytes []byte, privateK
 	return p
 }
 
+func getCustomizedDIDPayloadInfo(id string, didOperation string, docBytes []byte,
+	privateKeyStr string) *types.CustomizedDIDOperation {
+	//pBytes := getDIDPayloadBytes(id)
+	info := new(types.CustomizedDIDPayload)
+	json.Unmarshal(docBytes, info)
+
+	//todo 加上m:n 是否要加pretxid,填充Proof为多个
+	p := &types.CustomizedDIDOperation{
+		Header: types.CustomizedDIDHeaderInfo{
+			Specification: "elastos/did/1.0",
+			Operation:     didOperation,
+		},
+		Payload: base64url.EncodeToString(docBytes),
+		Proof: &types.DIDProofInfo{
+			Type:               "ECDSAsecp256r1",
+			VerificationMethod: "did:elastos:" + id + "#primary",
+		},
+		PayloadInfo: info,
+	}
+	privateKey1 := base58.Decode(privateKeyStr)
+	//privateKey1, _ := common.HexStringToBytes()
+	sign, _ := crypto.Sign(privateKey1, p.GetData())
+	p.Proof.(*types.DIDProofInfo).Signature = base64url.EncodeToString(sign)
+	return p
+}
+
+func getCustomizedDIDPayloadInfoMultiSign(id1, id2 string, didOperation string, docBytes []byte,
+	privateKeyStr1, privateKeyStr2 string) *types.CustomizedDIDOperation {
+	//pBytes := getDIDPayloadBytes(id)
+	info := new(types.CustomizedDIDPayload)
+	json.Unmarshal(docBytes, info)
+
+	var Proofs []*types.DIDProofInfo
+
+	//todo 加上m:n 是否要加pretxid,填充Proof为多个
+	p := &types.CustomizedDIDOperation{
+		Header: types.CustomizedDIDHeaderInfo{
+			Specification: "elastos/did/1.0",
+			Operation:     didOperation,
+		},
+		Payload:     base64url.EncodeToString(docBytes),
+		PayloadInfo: info,
+	}
+	proof1 := &types.DIDProofInfo{
+		Type:               "ECDSAsecp256r1",
+		VerificationMethod: "did:elastos:" + id1 + "#primary",
+	}
+	privateKey1 := base58.Decode(privateKeyStr1)
+	sign, _ := crypto.Sign(privateKey1, p.GetData())
+	proof1.Signature = base64url.EncodeToString(sign)
+	Proofs = append(Proofs, proof1)
+
+	proof2 := &types.DIDProofInfo{
+		Type:               "ECDSAsecp256r1",
+		VerificationMethod: "did:elastos:" + id2 + "#primary",
+	}
+	privateKey2 := base58.Decode(privateKeyStr2)
+	sign2, _ := crypto.Sign(privateKey2, p.GetData())
+	proof2.Signature = base64url.EncodeToString(sign2)
+	Proofs = append(Proofs, proof2)
+
+	p.Proof = Proofs
+	return p
+}
+
 func (s *txValidatorTestSuite) TestGenrateTxFromRawTxStr() {
 	rawTxStr := "0a000f656c6173746f732f6469642f312e30067570646174654038393666646533393565653539663265626330353464333" +
 		"135643934383738663165636439346163333566663165373463653638653833346439353432653631fdd70c65794a705a434936496d" +
@@ -467,6 +540,26 @@ func getDIDTx(id, didOperation string, docBytes []byte, privateKeyStr string) *t
 	return txn
 }
 
+//didOperation must be create or update
+func getCustomizedDIDTx(id, didOperation string, docBytes []byte, privateKeyStr string) *types2.Transaction {
+
+	payloadDidInfo := getCustomizedDIDPayloadInfo(id, didOperation, docBytes, privateKeyStr)
+	txn := new(types2.Transaction)
+	txn.TxType = types.CustomizedDID
+	txn.Payload = payloadDidInfo
+	return txn
+}
+
+//didOperation must be create or update
+func getCustomizedDIDTxMultSign(id1, id2, didOperation string, docBytes []byte, privateKeyStr1, privateKeyStr2 string) *types2.Transaction {
+
+	payloadDidInfo := getCustomizedDIDPayloadInfoMultiSign(id1, id2, didOperation, docBytes, privateKeyStr1, privateKeyStr2)
+	txn := new(types2.Transaction)
+	txn.TxType = types.CustomizedDID
+	txn.Payload = payloadDidInfo
+	return txn
+}
+
 func (s *txValidatorTestSuite) TestCheckRegisterDID() {
 
 	id1 := "did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnyms"
@@ -494,11 +587,69 @@ func (s *txValidatorTestSuite) TestSelfProclaimedCredential() {
 	id3 := "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
 
 	//id3DocBytes
-	tx3 := getDIDTx(id3, "crate", id3DocByts, privateKey3Str)
+	tx3 := getDIDTx(id3, "create", id3DocByts, privateKey3Str)
 	err3 := s.validator.checkRegisterDID(tx3)
 	s.NoError(err3)
 
-	tx3_2 := getDIDTx(id3, "crate", id2DocByts, privateKey3Str)
-	err3_2 := s.validator.checkRegisterDID(tx3_2)
-	s.NoError(err3_2)
+	//tx3_2 := getDIDTx(id3, "create", id2DocByts, privateKey3Str)
+	//err3_2 := s.validator.checkRegisterDID(tx3_2)
+	//s.NoError(err3_2)
+}
+
+//issuer.json SelfProclaimedCredential
+func (s *txValidatorTestSuite) TestCustomizedDID() {
+
+	id1 := "iWFAUYhTa35c1fPe3iCJvihZHx6quumnyms"
+	privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
+
+	////////////////////////////////////////
+	//id1 := "did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnyms"
+	//privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
+	tx1 := getDIDTx(id1, "create", id1DocByts, privateKey1Str)
+
+	batch := s.validator.Store.NewBatch()
+	err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("iWFAUYhTa35c1fPe3iCJvihZHx6quumnyms"), tx1,
+		100, 123456)
+	s.NoError(err1)
+	batch.Commit()
+	//////////////////////////////////////////////////////////
+	//id3DocBytes
+	tx3 := getCustomizedDIDTx(id1, "create", customizedDIDDocBytes1, privateKey1Str)
+	err3 := s.validator.checkCustomizedDID(tx3)
+	s.NoError(err3)
+
+	//tx3_2 := getDIDTx(id1, "crate", id2DocByts, privateKey1Str)
+	//err3_2 := s.validator.checkCustomizedDID(tx3_2)
+	//s.NoError(err3_2)
+}
+
+//issuer.json SelfProclaimedCredential
+func (s *txValidatorTestSuite) TestCustomizedDIDMultSign() {
+	id1 := "iWFAUYhTa35c1fPe3iCJvihZHx6quumnyms"
+	privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
+	tx1 := getDIDTx(id1, "create", id1DocByts, privateKey1Str)
+
+	batch := s.validator.Store.NewBatch()
+	err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("iWFAUYhTa35c1fPe3iCJvihZHx6quumnyms"), tx1,
+		100, 123456)
+	s.NoError(err1)
+	batch.Commit()
+
+	//CustomizedDIDTx1 := getCustomizedDIDTx(id1, "create", customizedDIDDocBytes1, privateKey1Str)
+	//err1 = s.validator.checkCustomizedDID(CustomizedDIDTx1)
+	//s.NoError(err1)
+
+	privateKey2Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
+	id2 := "ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
+	tx2 := getDIDTx(id2, "create", id2DocByts, privateKey2Str)
+	batch2 := s.validator.Store.NewBatch()
+	err2 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"), tx2,
+		100, 123456)
+	s.NoError(err2)
+	batch2.Commit()
+
+	CustomizedDIDTx2 := getCustomizedDIDTxMultSign(id1, id2, "create", customizedDIDDocBytes2,
+		privateKey1Str, privateKey2Str)
+	err := s.validator.checkCustomizedDID(CustomizedDIDTx2)
+	s.NoError(err)
 }
