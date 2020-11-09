@@ -53,6 +53,8 @@ func init() {
 			return &Operation{}, nil
 		case DeactivateDID:
 			return &DeactivateDIDOptPayload{}, nil
+		case CustomizedDID:
+			return &CustomizedDIDOperation{}, nil
 		}
 		return getPayloadByTxType(txType)
 	}

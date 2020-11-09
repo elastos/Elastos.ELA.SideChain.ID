@@ -372,7 +372,6 @@ func getPayloadDIDInfo(id string, didOperation string, docBytes []byte, privateK
 		PayloadInfo: info,
 	}
 	privateKey1 := base58.Decode(privateKeyStr)
-	//privateKey1, _ := common.HexStringToBytes()
 	sign, _ := crypto.Sign(privateKey1, p.GetData())
 	p.Proof.Signature = base64url.EncodeToString(sign)
 	return p
@@ -384,7 +383,6 @@ func getCustomizedDIDPayloadInfo(id string, didOperation string, docBytes []byte
 	info := new(types.CustomizedDIDPayload)
 	json.Unmarshal(docBytes, info)
 
-	//todo 加上m:n 是否要加pretxid,填充Proof为多个
 	p := &types.CustomizedDIDOperation{
 		Header: types.CustomizedDIDHeaderInfo{
 			Specification: "elastos/did/1.0",
@@ -398,7 +396,6 @@ func getCustomizedDIDPayloadInfo(id string, didOperation string, docBytes []byte
 		PayloadInfo: info,
 	}
 	privateKey1 := base58.Decode(privateKeyStr)
-	//privateKey1, _ := common.HexStringToBytes()
 	sign, _ := crypto.Sign(privateKey1, p.GetData())
 	p.Proof.(*types.DIDProofInfo).Signature = base64url.EncodeToString(sign)
 	return p
@@ -411,8 +408,6 @@ func getCustomizedDIDPayloadInfoMultiSign(id1, id2 string, didOperation string, 
 	json.Unmarshal(docBytes, info)
 
 	var Proofs []*types.DIDProofInfo
-
-	//todo 加上m:n 是否要加pretxid,填充Proof为多个
 	p := &types.CustomizedDIDOperation{
 		Header: types.CustomizedDIDHeaderInfo{
 			Specification: "elastos/did/1.0",
@@ -560,6 +555,22 @@ func getCustomizedDIDTxMultSign(id1, id2, didOperation string, docBytes []byte, 
 	return txn
 }
 
+//issuer.json SelfProclaimedCredential
+func (s *txValidatorTestSuite) Test01SelfProclaimedCredential() {
+	privateKey3Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
+	id3 := "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
+
+	//id3DocBytes
+	tx3 := getDIDTx(id3, "create", id3DocByts, privateKey3Str)
+	err3 := s.validator.checkRegisterDID(tx3)
+	s.NoError(err3)
+
+	tx3_2 := getDIDTx(id3, "create", id2DocByts, privateKey3Str)
+	err3_2 := s.validator.checkRegisterDID(tx3_2)
+	s.NoError(err3_2)
+
+}
+
 func (s *txValidatorTestSuite) TestCheckRegisterDID() {
 
 	id1 := "did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnyms"
@@ -581,46 +592,24 @@ func (s *txValidatorTestSuite) TestCheckRegisterDID() {
 	s.NoError(err2)
 }
 
-//issuer.json SelfProclaimedCredential
-func (s *txValidatorTestSuite) TestSelfProclaimedCredential() {
-	privateKey3Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
-	id3 := "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
-
-	//id3DocBytes
-	tx3 := getDIDTx(id3, "create", id3DocByts, privateKey3Str)
-	err3 := s.validator.checkRegisterDID(tx3)
-	s.NoError(err3)
-
-	//tx3_2 := getDIDTx(id3, "create", id2DocByts, privateKey3Str)
-	//err3_2 := s.validator.checkRegisterDID(tx3_2)
-	//s.NoError(err3_2)
-}
-
-//issuer.json SelfProclaimedCredential
 func (s *txValidatorTestSuite) TestCustomizedDID() {
-
 	id1 := "iWFAUYhTa35c1fPe3iCJvihZHx6quumnyms"
 	privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
 
-	////////////////////////////////////////
-	//id1 := "did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnyms"
-	//privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
 	tx1 := getDIDTx(id1, "create", id1DocByts, privateKey1Str)
-
 	batch := s.validator.Store.NewBatch()
 	err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("iWFAUYhTa35c1fPe3iCJvihZHx6quumnyms"), tx1,
 		100, 123456)
 	s.NoError(err1)
 	batch.Commit()
-	//////////////////////////////////////////////////////////
-	//id3DocBytes
 	tx3 := getCustomizedDIDTx(id1, "create", customizedDIDDocBytes1, privateKey1Str)
 	err3 := s.validator.checkCustomizedDID(tx3)
 	s.NoError(err3)
 
-	//tx3_2 := getDIDTx(id1, "crate", id2DocByts, privateKey1Str)
-	//err3_2 := s.validator.checkCustomizedDID(tx3_2)
-	//s.NoError(err3_2)
+	tx3_2 := getDIDTx(id1, "crate", id2DocByts, privateKey1Str)
+	err3_2 := s.validator.checkCustomizedDID(tx3_2)
+	s.NoError(err3_2)
+
 }
 
 //issuer.json SelfProclaimedCredential
@@ -635,9 +624,9 @@ func (s *txValidatorTestSuite) TestCustomizedDIDMultSign() {
 	s.NoError(err1)
 	batch.Commit()
 
-	//CustomizedDIDTx1 := getCustomizedDIDTx(id1, "create", customizedDIDDocBytes1, privateKey1Str)
-	//err1 = s.validator.checkCustomizedDID(CustomizedDIDTx1)
-	//s.NoError(err1)
+	CustomizedDIDTx1 := getCustomizedDIDTx(id1, "create", customizedDIDDocBytes1, privateKey1Str)
+	err1 = s.validator.checkCustomizedDID(CustomizedDIDTx1)
+	s.NoError(err1)
 
 	privateKey2Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
 	id2 := "ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
@@ -652,4 +641,5 @@ func (s *txValidatorTestSuite) TestCustomizedDIDMultSign() {
 		privateKey1Str, privateKey2Str)
 	err := s.validator.checkCustomizedDID(CustomizedDIDTx2)
 	s.NoError(err)
+
 }

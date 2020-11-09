@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"github.com/elastos/Elastos.ELA.SideChain.ID/types/base64url"
-	"github.com/elastos/Elastos.ELA/common"
 	"io"
 
+	"github.com/elastos/Elastos.ELA/common"
+
 	"github.com/elastos/Elastos.ELA.SideChain.ID/didjson"
+	"github.com/elastos/Elastos.ELA.SideChain.ID/types/base64url"
 )
 
 const CustomizedDIDVersion = 0x00
@@ -234,9 +235,7 @@ type CustomizedDIDPayload struct {
 	//Authorization        []interface{}                `json:"authorization"`
 	VerifiableCredential []VerifiableCredential `json:"verifiableCredential"`
 	Expires              string                 `json:"expires"`
-	// []CustomizedDIDProofInfo interface
-	//Proof interface{} `json:"proof"`
-	Proof CustomizedDIDProofInfo `json:"proof"`
+	Proof                CustomizedDIDProofInfo `json:"proof"`
 }
 
 // payload of DID transaction
@@ -295,8 +294,8 @@ func (p *CustomizedDIDOperation) Serialize(w io.Writer, version byte) error {
 	if err := common.WriteVarString(w, p.Payload); err != nil {
 		return errors.New("[Operation], Payload serialize failed")
 	}
-	//serialize DIDProofArray
-	if DIDProofArray, ok := p.Proof.([]DIDProofInfo); ok == true {
+	//serialize DIDProofArray []*id.DIDProofInfo
+	if DIDProofArray, ok := p.Proof.([]*DIDProofInfo); ok == true {
 		if err := common.WriteVarUint(w, uint64(len(DIDProofArray))); err != nil {
 			return errors.New("DIDProofArray length serialization failed.")
 		}
@@ -305,7 +304,7 @@ func (p *CustomizedDIDOperation) Serialize(w io.Writer, version byte) error {
 				return err
 			}
 		}
-	} else if CustomizedDIDProof, ok := p.Proof.(DIDProofInfo); ok == true {
+	} else if CustomizedDIDProof, ok := p.Proof.(*DIDProofInfo); ok == true {
 		if err := common.WriteVarUint(w, uint64(1)); err != nil {
 			return errors.New("DIDProofArray 1 serialization failed.")
 		}

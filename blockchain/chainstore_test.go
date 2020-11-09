@@ -120,7 +120,8 @@ func TestIDChainStore_PersistDIDTx(t *testing.T) {
 	assert.True(t, isOperationEqual(txs[0].Operation, txData1.Operation))
 
 	height, err := idChainStore.GetExpiresHeight(id1)
-	targetExpHeight, _ := idChainStore.TryGetExpiresHeight(tx1, blockHeight1, blockTimeStamp1)
+	operation, _ := tx1.Payload.(*types.Operation)
+	targetExpHeight, _ := idChainStore.TryGetExpiresHeight(operation.PayloadInfo.Expires, blockHeight1, blockTimeStamp1)
 	assert.True(t, err == nil)
 	assert.Equal(t, targetExpHeight, height)
 
@@ -139,7 +140,9 @@ func TestIDChainStore_PersistDIDTx(t *testing.T) {
 	assert.True(t, isOperationEqual(p2.Operation, txData2.Operation))
 
 	height2, err := idChainStore.GetExpiresHeight(id2)
-	targetExpHeight2, _ := idChainStore.TryGetExpiresHeight(tx2, blockHeight2, blockTimeStamp2)
+	operation2, _ := tx2.Payload.(*types.Operation)
+
+	targetExpHeight2, _ := idChainStore.TryGetExpiresHeight(operation2.PayloadInfo.Expires, blockHeight2, blockTimeStamp2)
 	assert.True(t, err == nil)
 	assert.Equal(t, targetExpHeight2, height2)
 
@@ -150,7 +153,7 @@ func TestIDChainStore_PersistDIDTx(t *testing.T) {
 	batch.Commit()
 
 	height3, err := idChainStore.GetExpiresHeight(id2)
-	targetExpHeight3, _ := idChainStore.TryGetExpiresHeight(tx2, blockHeight3, blockTimeStamp3)
+	targetExpHeight3, _ := idChainStore.TryGetExpiresHeight(operation2.PayloadInfo.Expires, blockHeight3, blockTimeStamp3)
 	assert.True(t, err == nil)
 	assert.Equal(t, targetExpHeight3, height3)
 
