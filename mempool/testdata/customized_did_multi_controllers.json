@@ -1,0 +1,20 @@
+{
+    " header":{
+        " operation":" create",
+        " specification":" elastos/did/1.0",
+        " multisign":" 3:2"
+    },
+    " payload":" eyJpZCI6ImRpZDp......4NTlvT0EifX0",
+    " proof":[
+        {
+            " signature":" PJvh1BNUE_NmSBdveaEvMLOQq6-JNLEtiYOIEp1qCyPCChW7OrSA9PrRMUvxUsHqXp1Hx26nBChkmeUQeeX1sw",
+            " type":" ECDSAsecp256r1",
+            " verificationMethod":" did:elastos:idyzvmEygc1zwK5AdsZeVaUJEtW7Q1ib9g#primary"
+        },
+        {
+            " signature":" PJvh1BNUE_NmSBdveaEvMLOQq6-JNLEtiYOIEp1qCyPCChW7OrSA9PrRMUvxUsHqXp1Hx26nBChkmeUQeeX1sw",
+            " type":" ECDSAsecp256r1",
+            " verificationMethod":" did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym#primary"
+        }
+    ]
+}

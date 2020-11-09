@@ -25,7 +25,7 @@ func New(cfg *memp.Config) *memp.TxPool {
 		),
 	})
 	txPool.AddConflictSlot(&memp.Conflict{
-		Name: SlotRegisterDID,
+		Name: SlotDeactivateDID,
 		Slot: memp.NewConflictSlot(memp.Str,
 			memp.KeyTypeFuncPair{
 				Type: types.DeactivateDID,
@@ -34,7 +34,7 @@ func New(cfg *memp.Config) *memp.TxPool {
 		),
 	})
 	txPool.AddConflictSlot(&memp.Conflict{
-		Name: SlotRegisterDID,
+		Name: SlotCustomizedDID,
 		Slot: memp.NewConflictSlot(memp.Str,
 			memp.KeyTypeFuncPair{
 				Type: types.CustomizedDID,

@@ -82,7 +82,7 @@ func (c *IDChainStore) persistTransactions(batch database.Batch, b *types.Block)
 
 			id := c.GetDIDFromUri(regPayload.PayloadInfo.ID)
 			if id == "" {
-				return errors.New("invalid regPayload.payloadInfo.ID")
+				return errors.New("invalid regPayload.PayloadInfo.ID")
 			}
 			if err := c.persistRegisterDIDTx(batch, []byte(id),
 				txn, b.GetHeight(), b.GetTimeStamp()); err != nil {
@@ -102,7 +102,7 @@ func (c *IDChainStore) persistTransactions(batch database.Batch, b *types.Block)
 
 			id := regPayload.GetPayloadInfo().ID
 			if id == "" {
-				return errors.New("invalid regPayload.payloadInfo.ID")
+				return errors.New("invalid regPayload.PayloadInfo.ID")
 			}
 			if err := c.persistCustomizedDIDTx(batch, []byte(id),
 				txn, b.GetHeight(), b.GetTimeStamp()); err != nil {
@@ -156,7 +156,7 @@ func (c *IDChainStore) rollbackTransactions(batch database.Batch, b *types.Block
 			regPayload := txn.Payload.(*id.Operation)
 			id := c.GetDIDFromUri(regPayload.PayloadInfo.ID)
 			if id == "" {
-				return errors.New("invalid regPayload.payloadInfo.ID")
+				return errors.New("invalid regPayload.PayloadInfo.ID")
 			}
 			if err := c.rollbackRegisterDIDTx(batch, []byte(id), txn); err != nil {
 				return err
@@ -165,7 +165,7 @@ func (c *IDChainStore) rollbackTransactions(batch database.Batch, b *types.Block
 			regPayload := txn.Payload.(*id.CustomizedDIDOperation)
 			id := regPayload.GetPayloadInfo().ID
 			if id == "" {
-				return errors.New("invalid regPayload.payloadInfo.ID")
+				return errors.New("invalid regPayload.PayloadInfo.ID")
 			}
 			if err := c.rollbackRegisterDIDTx(batch, []byte(id), txn); err != nil {
 				return err
@@ -175,7 +175,7 @@ func (c *IDChainStore) rollbackTransactions(batch database.Batch, b *types.Block
 			deactivateDID := txn.Payload.(*id.DeactivateDIDOptPayload)
 			id := c.GetDIDFromUri(deactivateDID.Payload)
 			if id == "" {
-				return errors.New("invalid regPayload.PayloadInfo.ID")
+				return errors.New("invalid deactivateDID.Payload")
 			}
 			if err := c.rollbackDeactivateDIDTx(batch, []byte(id), txn); err != nil {
 				return err
@@ -214,18 +214,8 @@ func (c *IDChainStore) GetRegisterIdentificationTx(idKey []byte) ([]byte, error)
 	return data, nil
 }
 
-func (c *IDChainStore) TryGetExpiresHeight(txn *types.Transaction,
-	blockHeight uint32,
-	blockTimeStamp uint32) (uint32, error) {
-	payloadDidInfo, ok := txn.Payload.(*id.Operation)
-	if !ok {
-		return 0, errors.New("invalid Operation")
-	}
-	if payloadDidInfo.PayloadInfo == nil {
-		return 0, errors.New("invalid payloadInfo")
-	}
-
-	expiresTime, err := time.Parse(time.RFC3339, payloadDidInfo.PayloadInfo.Expires)
+func (c *IDChainStore) TryGetExpiresHeight(Expires string, blockHeight uint32, blockTimeStamp uint32) (uint32, error) {
+	expiresTime, err := time.Parse(time.RFC3339, Expires)
 	if err != nil {
 		return 0, errors.New("invalid Expires")
 	}
@@ -245,8 +235,11 @@ func (c *IDChainStore) TryGetExpiresHeight(txn *types.Transaction,
 func (c *IDChainStore) persistRegisterDIDTx(batch database.Batch,
 	idKey []byte, tx *types.Transaction, blockHeight uint32,
 	blockTimeStamp uint32) error {
-
-	expiresHeight, err := c.TryGetExpiresHeight(tx, blockHeight, blockTimeStamp)
+	operation, ok := tx.Payload.(*id.Operation)
+	if !ok {
+		return errors.New("persistRegisterDIDTx invalid Operation")
+	}
+	expiresHeight, err := c.TryGetExpiresHeight(operation.PayloadInfo.Expires, blockHeight, blockTimeStamp)
 	if err != nil {
 		return err
 	}
@@ -269,8 +262,8 @@ func (c *IDChainStore) persistRegisterDIDTx(batch database.Batch,
 func (c *IDChainStore) persistCustomizedDIDTx(batch database.Batch,
 	idKey []byte, tx *types.Transaction, blockHeight uint32,
 	blockTimeStamp uint32) error {
-
-	expiresHeight, err := c.TryGetExpiresHeight(tx, blockHeight, blockTimeStamp)
+	customizedDIDOperation := tx.Payload.(*id.CustomizedDIDOperation)
+	expiresHeight, err := c.TryGetExpiresHeight(customizedDIDOperation.PayloadInfo.Expires, blockHeight, blockTimeStamp)
 	if err != nil {
 		return err
 	}
@@ -282,8 +275,7 @@ func (c *IDChainStore) persistCustomizedDIDTx(batch database.Batch,
 		return err
 	}
 
-	if err := c.persistCustomizedDIDPayload(batch, tx.Hash(),
-		tx.Payload.(*id.CustomizedDIDOperation)); err != nil {
+	if err := c.persistCustomizedDIDPayload(batch, tx.Hash(), customizedDIDOperation); err != nil {
 		return err
 	}
 
