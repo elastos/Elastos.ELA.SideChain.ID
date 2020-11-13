@@ -393,7 +393,7 @@ func getCustomizedDIDPayloadInfo(id string, didOperation string, docBytes []byte
 			Type:               "ECDSAsecp256r1",
 			VerificationMethod: "did:elastos:" + id + "#primary",
 		},
-		PayloadInfo: info,
+		Doc: info,
 	}
 	privateKey1 := base58.Decode(privateKeyStr)
 	sign, _ := crypto.Sign(privateKey1, p.GetData())
@@ -413,8 +413,8 @@ func getCustomizedDIDPayloadInfoMultiSign(id1, id2 string, didOperation string, 
 			Specification: "elastos/did/1.0",
 			Operation:     didOperation,
 		},
-		Payload:     base64url.EncodeToString(docBytes),
-		PayloadInfo: info,
+		Payload: base64url.EncodeToString(docBytes),
+		Doc:     info,
 	}
 	proof1 := &types.DIDProofInfo{
 		Type:               "ECDSAsecp256r1",
@@ -579,8 +579,8 @@ func (s *txValidatorTestSuite) TestCheckRegisterDID() {
 	id2 := "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
 	privateKey2Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
 
-	tx2 := getDIDTx(id2, "crate", id2DocByts, privateKey2Str)
-	tx1 := getDIDTx(id1, "crate", id1DocByts, privateKey1Str)
+	tx2 := getDIDTx(id2, "create", id2DocByts, privateKey2Str)
+	tx1 := getDIDTx(id1, "create", id1DocByts, privateKey1Str)
 
 	batch := s.validator.Store.NewBatch()
 	err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"), tx2,
@@ -606,7 +606,7 @@ func (s *txValidatorTestSuite) TestCustomizedDID() {
 	err3 := s.validator.checkCustomizedDID(tx3)
 	s.NoError(err3)
 
-	tx3_2 := getDIDTx(id1, "crate", id2DocByts, privateKey1Str)
+	tx3_2 := getDIDTx(id1, "create", id2DocByts, privateKey1Str)
 	err3_2 := s.validator.checkCustomizedDID(tx3_2)
 	s.NoError(err3_2)
 
@@ -632,7 +632,7 @@ func (s *txValidatorTestSuite) TestCustomizedDIDMultSign() {
 	id2 := "ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
 	tx2 := getDIDTx(id2, "create", id2DocByts, privateKey2Str)
 	batch2 := s.validator.Store.NewBatch()
-	err2 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"), tx2,
+	err2 := s.validator.Store.PersistRegisterDIDTx(batch2, []byte("ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"), tx2,
 		100, 123456)
 	s.NoError(err2)
 	batch2.Commit()

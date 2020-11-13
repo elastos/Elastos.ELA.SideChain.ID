@@ -15,7 +15,8 @@ import (
 )
 
 const DIDInfoVersion = 0x00
-const VerifiableCredentialVersion = 0x01
+
+//const VerifiableCredentialVersion = 0x01
 
 const DID_ELASTOS_PREFIX = "did:elastos:"
 const ID_STRING = "id"
