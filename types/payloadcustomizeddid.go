@@ -294,11 +294,11 @@ func (p *CustomizedDIDOperation) Data(version byte) []byte {
 
 func (p *CustomizedDIDOperation) Serialize(w io.Writer, version byte) error {
 	if err := p.Header.Serialize(w, version); err != nil {
-		return errors.New("[Operation], Header serialize failed," + err.Error())
+		return errors.New("[CustomizedDIDOperation], Header serialize failed," + err.Error())
 	}
 
 	if err := common.WriteVarString(w, p.Payload); err != nil {
-		return errors.New("[Operation], Payload serialize failed")
+		return errors.New("[CustomizedDIDOperation], Payload serialize failed")
 	}
 	//serialize DIDProofArray []*id.DIDProofInfo
 	if DIDProofArray, ok := p.Proof.([]*DIDProofInfo); ok == true {
@@ -327,7 +327,7 @@ func (p *CustomizedDIDOperation) Serialize(w io.Writer, version byte) error {
 
 func (p *CustomizedDIDOperation) Deserialize(r io.Reader, version byte) error {
 	if err := p.Header.Deserialize(r, version); err != nil {
-		return errors.New("[DIDInfo], Header deserialize failed" + err.Error())
+		return errors.New("[CustomizedDIDOperation], Header deserialize failed" + err.Error())
 	}
 
 	payload, err := common.ReadVarString(r)
@@ -357,17 +357,17 @@ func (p *CustomizedDIDOperation) Deserialize(r io.Reader, version byte) error {
 		}
 		p.Proof = &didProofInfo
 	} else {
-		errors.New("[DIDInfo], Proof count invalid")
+		errors.New("[CustomizedDIDOperation], Proof count invalid")
 	}
 
 	// get DIDPayloadInfo from payload data
 	pBytes, err := base64url.DecodeString(p.Payload)
 	if err != nil {
-		return errors.New("[DIDInfo], payload decode failed")
+		return errors.New("[CustomizedDIDOperation], payload decode failed")
 	}
 	payloadInfo := new(CustomizedDIDPayload)
 	if err := json.Unmarshal(pBytes, payloadInfo); err != nil {
-		return errors.New("[DIDInfo], payload unmarshal failed")
+		return errors.New("[CustomizedDIDOperation], payload unmarshal failed")
 	}
 	p.Doc = payloadInfo
 	return nil
@@ -392,7 +392,7 @@ type VerifiableCredentialTxData struct {
 	Operation VerifiableCredentialPayload `json:"operation"`
 }
 
-// payload of DID transaction
+// payload of VerifiableCredential transaction
 type VerifiableCredentialPayload struct {
 	Header  CustomizedDIDHeaderInfo `json:"header"`
 	Payload string                  `json:"payload"`
@@ -415,7 +415,7 @@ func (p *VerifiableCredentialPayload) Data(version byte) []byte {
 
 func (p *VerifiableCredentialPayload) Serialize(w io.Writer, version byte) error {
 	if err := p.Header.Serialize(w, version); err != nil {
-		return errors.New("[Operation], Header serialize failed," + err.Error())
+		return errors.New("[VerifiableCredentialPayload], Header serialize failed," + err.Error())
 	}
 
 	if err := common.WriteVarString(w, p.Payload); err != nil {
@@ -448,12 +448,12 @@ func (p *VerifiableCredentialPayload) Serialize(w io.Writer, version byte) error
 
 func (p *VerifiableCredentialPayload) Deserialize(r io.Reader, version byte) error {
 	if err := p.Header.Deserialize(r, version); err != nil {
-		return errors.New("[DIDInfo], Header deserialize failed" + err.Error())
+		return errors.New("[VerifiableCredentialPayload], Header deserialize failed" + err.Error())
 	}
 
 	payload, err := common.ReadVarString(r)
 	if err != nil {
-		return errors.New("[DIDInfo], payload deserialize failed")
+		return errors.New("[VerifiableCredentialPayload], payload deserialize failed")
 	}
 	p.Payload = payload
 
@@ -478,17 +478,17 @@ func (p *VerifiableCredentialPayload) Deserialize(r io.Reader, version byte) err
 		}
 		p.Proof = &didProofInfo
 	} else {
-		errors.New("[DIDInfo], Proof count invalid")
+		errors.New("[VerifiableCredentialPayload], Proof count invalid")
 	}
 
 	// get DIDPayloadInfo from payload data
 	pBytes, err := base64url.DecodeString(p.Payload)
 	if err != nil {
-		return errors.New("[DIDInfo], payload decode failed")
+		return errors.New("[VerifiableCredentialPayload], payload decode failed")
 	}
 	doc := new(VerifiableCredential)
 	if err := json.Unmarshal(pBytes, doc); err != nil {
-		return errors.New("[DIDInfo], payload unmarshal failed")
+		return errors.New("[VerifiableCredentialPayload], payload unmarshal failed")
 	}
 	p.Doc = doc
 	return nil
