@@ -335,8 +335,40 @@ func (v *validator) getCustomizedDIDPublicKeyByVerificationMethod(proof *id.DIDP
 	return "", errors.New(" wrong public key by VerificationMethod ")
 }
 
+func (v *validator) checkCustomizedDIDAllVerificationMethod(doc *id.CustomizedDIDPayload, Proof interface{}) ([]*id.DIDProofInfo,
+	error) {
+	//2,DIDProofInfo VerificationMethod must be in CustomizedDIDPayload Authentication or
+	//is come from controller
+	//doc := payload.Doc
+	var DIDProofArray []*id.DIDProofInfo
+	var CustomizedDIDProof *id.DIDProofInfo
+	var bExist bool
+	bDIDProofArray := false
+	if DIDProofArray, bDIDProofArray = Proof.([]*id.DIDProofInfo); bDIDProofArray == true {
+		for _, CustomizedDIDProof = range DIDProofArray {
+			if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.VerificationMethod, doc.ID,
+				doc.PublicKey, doc.Authentication, doc.Controller); err != nil {
+				return nil, err
+			}
+		}
+	} else if CustomizedDIDProof, bExist = Proof.(*id.DIDProofInfo); bExist == true {
+		if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.VerificationMethod, doc.ID,
+			doc.PublicKey, doc.Authentication, doc.Controller); err != nil {
+			return nil, err
+		}
+	} else {
+		//error
+		return nil, errors.New("Invalid Proof type")
+	}
+	//proof object
+	if bDIDProofArray == false {
+		DIDProofArray = append(DIDProofArray, CustomizedDIDProof)
+	}
+	return DIDProofArray, nil
+}
+
 //DIDProofInfo VerificationMethod must be in CustomizedDIDPayload Authentication or
-//is come from controller
+//is  controller primary key
 func (v *validator) checkCustomizedDIDVerificationMethod(VerificationMethod, txPrefixDID string,
 	PublicKey []id.DIDPublicKeyInfo, Authentication []interface{}, Controller interface{}) error {
 	prefixDid, compactSymbol := GetDIDAndCompactSymbolFromUri(VerificationMethod)
@@ -846,10 +878,10 @@ func (v *validator) checkVerifiableCredentialOperation(header *id.CustomizedDIDH
 //check operateion create---->db must not have
 //                 update----->db must have
 func (v *validator) checkCustomizedDIDOperation(header *id.CustomizedDIDHeaderInfo,
-	idUri string) error {
+	customizedDID string) error {
 	buf := new(bytes.Buffer)
-	buf.WriteString(idUri)
-	lastTXData, err := v.Store.GetLastDIDTxData(buf.Bytes())
+	buf.WriteString(customizedDID)
+	lastTXData, err := v.Store.GetLastCustomizedDIDTxData(buf.Bytes())
 
 	dbExist := true
 	if err != nil {
@@ -984,90 +1016,47 @@ func (v *validator) checkDIDVerifiableCredential(did string, credPayload *id.Ver
 	}
 	return nil
 }
+
 func (v *validator) checkCustomizedDIDVerifiableCredential(customizedDID string, payload *id.VerifiableCredentialPayload) error {
-
-	did := v.Store.GetDIDFromUri(customizedDID)
-	if did == "" {
-		return errors.New("WRONG DID FORMAT")
-	}
-	buf := new(bytes.Buffer)
-	buf.WriteString(did)
-	transactionData, err := v.Store.GetLastCustomizedDIDTxData(buf.Bytes())
+	//1, if it is "create" use now m/n and public key otherwise use last time m/n and public key
+	//var verifyDoc *id.CustomizedDIDPayload
+	verifyDoc, multisignStr, err := v.getVerifyDocMultisign(customizedDID)
 	if err != nil {
 		return err
 	}
-	verifyPayloadinfo := transactionData.Operation.GetPayloadInfo()
-	var N, verifyOkCount int
-	_, N, err = GetMultisignMN(transactionData.Operation.Header.Multisign)
+
+	//M,
+	//var N int
+	N := 0
+	if multisignStr != "" {
+		_, N, err = GetMultisignMN(multisignStr)
+		if err != nil {
+			return err
+		}
+	}
+	//doc := customizedDIDPayload.Doc
+
+	//2,DIDProofInfo VerificationMethod must be in CustomizedDIDPayload Authentication or
+	//is come from controller
+
+	DIDProofArray, err := v.checkCustomizedDIDAllVerificationMethod(verifyDoc, payload)
 	if err != nil {
 		return err
 	}
-	////DIDProofInfo VerificationMethod must be in  Authentication or is come from controller
-	var DIDProofArray []*id.DIDProofInfo
-	var CustomizedDIDProof *id.DIDProofInfo
-	var bExist bool
-	bDIDProofArray := false
-	if DIDProofArray, bDIDProofArray = payload.Proof.([]*id.DIDProofInfo); bDIDProofArray == true {
-		for _, CustomizedDIDProof = range DIDProofArray {
-			if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.VerificationMethod,
-				verifyPayloadinfo.ID, verifyPayloadinfo.PublicKey, verifyPayloadinfo.Authentication,
-				verifyPayloadinfo.Controller); err != nil {
-				return err
-			}
-		}
-	} else if CustomizedDIDProof, bExist = payload.Proof.(*id.DIDProofInfo); bExist == true {
-		if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.VerificationMethod,
-			verifyPayloadinfo.ID, verifyPayloadinfo.PublicKey, verifyPayloadinfo.Authentication,
-			verifyPayloadinfo.Controller); err != nil {
-			return err
-		}
-	} else {
-		//error
-		return errors.New("Invalid Proof type")
+
+	//3, proof multisign verify
+	err = v.checkCustomizedDIDProof(DIDProofArray, payload, N, verifyDoc)
+	if err != nil {
+		return err
 	}
-	//proof object
-	if bDIDProofArray == false {
-		DIDProofArray = append(DIDProofArray, CustomizedDIDProof)
-	}
-
-	for _, CustomizedDIDProof := range DIDProofArray {
-		//get  public key
-		publicKeyBase58, _ := v.getCustomizedDIDPublicKeyByVerificationMethod(CustomizedDIDProof, verifyPayloadinfo)
-		if publicKeyBase58 == "" {
-			return errors.New("Not find proper publicKeyBase58")
-		}
-		//get code
-		//var publicKeyByte []byte
-		publicKeyByte := base58.Decode(publicKeyBase58)
-
-		//var code []byte
-		code, err := getCodeByPubKey(publicKeyByte)
-		if err != nil {
-			return err
-		}
-		signature, _ := base64url.DecodeString(CustomizedDIDProof.Signature)
-
-		var success bool
-		success, err = v.VerifyByVM(payload, code, signature)
-
-		if err != nil {
-			return err
-		}
-		if !success {
-			return errors.New("[VM] Check Sig FALSE")
-		}
-		verifyOkCount++
-	}
-	if verifyOkCount < N {
-		return errors.New("[VM] Check Sig FALSE verifyOkCount < N")
-	}
-
-	if err = v.checkVeriﬁableCredential("", []id.VerifiableCredential{*payload.Doc},
-		verifyPayloadinfo.Authentication, verifyPayloadinfo.PublicKey); err != nil {
+	//4, Verifiable credential
+	if err = v.checkVeriﬁableCredential(verifyDoc.ID, verifyDoc.VerifiableCredential,
+		verifyDoc.Authentication, verifyDoc.PublicKey); err != nil {
 		return err
 	}
 	return nil
 }
+
 func (v *validator) checkVerifiableCredential(txn *types.Transaction) error {
 	//payload type check
 	if txn.TxType != id.VerifiableCredentialTxType {
@@ -1103,93 +1092,32 @@ func (v *validator) checkVerifiableCredential(txn *types.Transaction) error {
 	}
 }
 
-func (v *validator) checkCustomizedDID(txn *types.Transaction) error {
-	//payload type check
-	if txn.TxType != id.CustomizedDID {
-		return nil
+//	if operation is "create" use now m/n and public key otherwise use last time m/n and public key
+func (v *validator) getVerifyDocMultisign(customizedID string) (*id.CustomizedDIDPayload,
+	string, error) {
+
+	did := v.Store.GetDIDFromUri(customizedID)
+	if did == "" {
+		return nil, "", errors.New("WRONG DID FORMAT")
 	}
-	payloadDidInfo, ok := txn.Payload.(*id.CustomizedDIDOperation)
-	if !ok {
-		return errors.New("invalid CustomizedDIDOperation")
-	}
-	//check Expires must be  format RFC3339
-	_, err := time.Parse(time.RFC3339, payloadDidInfo.Doc.Expires)
+
+	buf := new(bytes.Buffer)
+	buf.WriteString(did)
+	transactionData, err := v.Store.GetLastCustomizedDIDTxData(buf.Bytes())
 	if err != nil {
-		return errors.New("invalid Expires")
+		return nil, "", err
 	}
-	//if this customized did is already exist operation should not be create
-	//if this customized did is not exist operation should not be update
-	if err := v.checkCustomizedDIDOperation(&payloadDidInfo.Header,
-		payloadDidInfo.GetPayloadInfo().ID); err != nil {
-		return err
-	}
+	return transactionData.Operation.Doc, transactionData.Operation.Header.Multisign, nil
+}
 
-	//todo This custoized did and register did are mutually exclusive
-	//todo check expires
-
-	//1, if it is "create" use now m/n and public key otherwise use last time m/n and public key
-	var verifyPayloadinfo *id.CustomizedDIDPayload
-	doc := payloadDidInfo.Doc
-	//M,
-	var N, verifyOkCount int
-	//If operation is create, use
-	if payloadDidInfo.Header.Operation == id.Create_Customized_DID_Operation {
-		verifyPayloadinfo = doc
-		if payloadDidInfo.Header.Multisign != "" {
-			_, N, err = GetMultisignMN(payloadDidInfo.Header.Multisign)
-			if err != nil {
-				return err
-			}
-		}
-	} else {
-		did := v.Store.GetDIDFromUri(payloadDidInfo.GetPayloadInfo().ID)
-		if did == "" {
-			return errors.New("WRONG DID FORMAT")
-		}
-
-		buf := new(bytes.Buffer)
-		buf.WriteString(did)
-		transactionData, err := v.Store.GetLastCustomizedDIDTxData(buf.Bytes())
-		if err != nil {
-			return err
-		}
-		verifyPayloadinfo = transactionData.Operation.GetPayloadInfo()
-		_, N, err = GetMultisignMN(transactionData.Operation.Header.Multisign)
-		if err != nil {
-			return err
-		}
-	}
-
-	//2,DIDProofInfo VerificationMethod must be in CustomizedDIDPayload Authentication or
-	//is come from controller
-	var DIDProofArray []*id.DIDProofInfo
-	var CustomizedDIDProof *id.DIDProofInfo
-	var bExist bool
-	bDIDProofArray := false
-	if DIDProofArray, bDIDProofArray = payloadDidInfo.Proof.([]*id.DIDProofInfo); bDIDProofArray == true {
-		for _, CustomizedDIDProof = range DIDProofArray {
-			if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.VerificationMethod, doc.ID,
-				doc.PublicKey, doc.Authentication, doc.Controller); err != nil {
-				return err
-			}
-		}
-	} else if CustomizedDIDProof, bExist = payloadDidInfo.Proof.(*id.DIDProofInfo); bExist == true {
-		if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.VerificationMethod, doc.ID,
-			doc.PublicKey, doc.Authentication, doc.Controller); err != nil {
-			return err
-		}
-	} else {
-		//error
-		return errors.New("Invalid Proof type")
-	}
-	//proof object
-	if bDIDProofArray == false {
-		DIDProofArray = append(DIDProofArray, CustomizedDIDProof)
-	}
+//3, proof multisign verify
+func (v *validator) checkCustomizedDIDProof(DIDProofArray []*id.DIDProofInfo, iDateContainer interfaces.IDataContainer,
+	N int, verifyDoc *id.CustomizedDIDPayload) error {
+	verifyOkCount := 0
 	//3, proof multisign verify
 	for _, CustomizedDIDProof := range DIDProofArray {
 		//get  public key
-		publicKeyBase58, _ := v.getCustomizedDIDPublicKeyByVerificationMethod(CustomizedDIDProof, verifyPayloadinfo)
+		publicKeyBase58, _ := v.getCustomizedDIDPublicKeyByVerificationMethod(CustomizedDIDProof, verifyDoc)
 		if publicKeyBase58 == "" {
 			return errors.New("Not find proper publicKeyBase58")
 		}
@@ -1205,7 +1133,7 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction) error {
 		signature, _ := base64url.DecodeString(CustomizedDIDProof.Signature)
 
 		var success bool
-		success, err = v.VerifyByVM(payloadDidInfo, code, signature)
+		success, err = v.VerifyByVM(iDateContainer, code, signature)
 
 		if err != nil {
 			return err
@@ -1217,6 +1145,70 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction) error {
 	}
 	if verifyOkCount < N {
 		return errors.New("[VM] Check Sig FALSE verifyOkCount < N")
+	}
+	return nil
+}
+
+func (v *validator) checkCustomizedDID(txn *types.Transaction) error {
+	//payload type check
+	if txn.TxType != id.CustomizedDID {
+		return nil
+	}
+	customizedDIDPayload, ok := txn.Payload.(*id.CustomizedDIDOperation)
+	if !ok {
+		return errors.New("invalid CustomizedDIDOperation")
+	}
+	//check Expires must be  format RFC3339
+	_, err := time.Parse(time.RFC3339, customizedDIDPayload.Doc.Expires)
+	if err != nil {
+		return errors.New("invalid Expires")
+	}
+	//if this customized did is already exist operation should not be create
+	//if this customized did is not exist operation should not be update
+	if err := v.checkCustomizedDIDOperation(&customizedDIDPayload.Header,
+		customizedDIDPayload.Doc.ID); err != nil {
+		return err
+	}
+
+	//todo This custoized did and register did are mutually exclusive
+	//todo check expires
+
+	//1, if it is "create" use now m/n and public key otherwise use last time m/n and public key
+	//var verifyDoc *id.CustomizedDIDPayload
+	///////////////////////////////
+	var verifyDoc *id.CustomizedDIDPayload
+	var multisignStr string
+	if customizedDIDPayload.Header.Operation == id.Create_Customized_DID_Operation {
+		verifyDoc = customizedDIDPayload.Doc
+		multisignStr = customizedDIDPayload.Header.Multisign
+	} else {
+		verifyDoc, multisignStr, err = v.getVerifyDocMultisign(customizedDIDPayload.Doc.ID)
+		if err != nil {
+			return err
+		}
+	}
+
+	N := 0
+	if multisignStr != "" {
+		_, N, err = GetMultisignMN(multisignStr)
+		if err != nil {
+			return err
+		}
+	}
+	doc := customizedDIDPayload.Doc
+
+	//2,DIDProofInfo VerificationMethod must be in CustomizedDIDPayload Authentication or
+	//is come from controller
+
+	DIDProofArray, err := v.checkCustomizedDIDAllVerificationMethod(customizedDIDPayload.Doc, customizedDIDPayload.Proof)
+	if err != nil {
+		return err
+	}
+
+	//3, proof multisign verify
+	err = v.checkCustomizedDIDProof(DIDProofArray, customizedDIDPayload, N, verifyDoc)
+	if err != nil {
+		return err
 	}
 	//4, Verifiable credential
 	if err = v.checkVeriﬁableCredential(doc.ID, doc.VerifiableCredential,
@@ -1232,36 +1224,36 @@ func (v *validator) checkRegisterDID(txn *types.Transaction) error {
 	if txn.TxType != id.RegisterDID {
 		return nil
 	}
-	payloadDidInfo, ok := txn.Payload.(*id.Operation)
+	doc, ok := txn.Payload.(*id.Operation)
 	if !ok {
 		return errors.New("invalid Operation")
 	}
 
-	_, err := time.Parse(time.RFC3339, payloadDidInfo.PayloadInfo.Expires)
+	_, err := time.Parse(time.RFC3339, doc.PayloadInfo.Expires)
 	if err != nil {
 		return errors.New("invalid Expires")
 	}
 
-	if err := v.checkDIDOperation(&payloadDidInfo.Header,
-		payloadDidInfo.PayloadInfo.ID); err != nil {
+	if err := v.checkDIDOperation(&doc.Header,
+		doc.PayloadInfo.ID); err != nil {
 		return err
 	}
 	localCurrentHeight := v.Store.GetHeight()
 	if localCurrentHeight < v.didParam.CheckRegisterDIDHeight {
-		if err := v.checkVerificationMethodV0(&payloadDidInfo.Proof,
-			payloadDidInfo.PayloadInfo); err != nil {
+		if err := v.checkVerificationMethodV0(&doc.Proof,
+			doc.PayloadInfo); err != nil {
 			return err
 		}
 	} else {
-		if err := v.checkVerificationMethodV1(payloadDidInfo.Proof.VerificationMethod,
-			payloadDidInfo.PayloadInfo); err != nil {
+		if err := v.checkVerificationMethodV1(doc.Proof.VerificationMethod,
+			doc.PayloadInfo); err != nil {
 			return err
 		}
 	}
 
 	//get  public key
-	publicKeyBase58 := getPublicKey(payloadDidInfo.Proof.VerificationMethod,
-		payloadDidInfo.PayloadInfo.Authentication, payloadDidInfo.PayloadInfo.PublicKey)
+	publicKeyBase58 := getPublicKey(doc.Proof.VerificationMethod,
+		doc.PayloadInfo.Authentication, doc.PayloadInfo.PublicKey)
 	if publicKeyBase58 == "" {
 		return errors.New("Not find proper publicKeyBase58")
 	}
@@ -1274,10 +1266,10 @@ func (v *validator) checkRegisterDID(txn *types.Transaction) error {
 	if err != nil {
 		return err
 	}
-	signature, _ := base64url.DecodeString(payloadDidInfo.Proof.Signature)
+	signature, _ := base64url.DecodeString(doc.Proof.Signature)
 
 	var success bool
-	success, err = v.VerifyByVM(payloadDidInfo, code, signature)
+	success, err = v.VerifyByVM(doc, code, signature)
 	if err != nil {
 		return err
 	}
@@ -1285,7 +1277,7 @@ func (v *validator) checkRegisterDID(txn *types.Transaction) error {
 		return errors.New("checkRegisterDID [VM]  Check Sig FALSE")
 	}
 	if localCurrentHeight >= v.didParam.VeriﬁableCredentialHeight {
-		payloadInfo := payloadDidInfo.PayloadInfo
+		payloadInfo := doc.PayloadInfo
 		if err = v.checkVeriﬁableCredential(payloadInfo.ID, payloadInfo.VerifiableCredential,
 			payloadInfo.Authentication, payloadInfo.PublicKey); err != nil {
 			return err
