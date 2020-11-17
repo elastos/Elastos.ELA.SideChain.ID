@@ -326,6 +326,12 @@ func (c *IDChainStore) persistCustomizedDIDTx(batch database.Batch,
 	return nil
 }
 
+func (c *IDChainStore) PersistCustomizedDIDTx(batch database.Batch,
+	idKey []byte, tx *types.Transaction, blockHeight uint32,
+	blockTimeStamp uint32) error {
+	return c.persistCustomizedDIDTx(batch, idKey, tx, blockHeight, blockTimeStamp)
+}
+
 func (c *IDChainStore) PersistRegisterDIDTx(batch database.Batch,
 	idKey []byte, tx *types.Transaction, blockHeight uint32,
 	blockTimeStamp uint32) error {
@@ -360,8 +366,6 @@ func (c *IDChainStore) IsDIDDeactivated(did string) bool {
 	}
 	return true
 }
-
-/////////////////////
 
 func (c *IDChainStore) persistVerifiableCredentialPayload(batch database.Batch,
 	txHash common.Uint256, p *id.VerifiableCredentialPayload) error {
@@ -463,8 +467,6 @@ func (c *IDChainStore) persisterifiableCredentialTxHash(batch database.Batch,
 
 	return batch.Put(key, buf.Bytes())
 }
-
-//////////////////////
 
 func (c *IDChainStore) persistRegisterDIDExpiresHeight(batch database.Batch,
 	idKey []byte, expiresHeight uint32) error {

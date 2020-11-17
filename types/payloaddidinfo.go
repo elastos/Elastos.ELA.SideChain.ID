@@ -222,6 +222,9 @@ func (p *VerifiableCredentialData) CompleteCompact(did string) {
 	}
 }
 
+type VerifiableCredentialDoc struct {
+	*VerifiableCredential `json:"verifiableCredential"`
+}
 type VerifiableCredential struct {
 	*VerifiableCredentialData
 	Proof DIDProofInfo `json:"Proof,omitempty"`
