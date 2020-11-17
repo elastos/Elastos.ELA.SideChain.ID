@@ -1,7 +1,7 @@
 {
     "id":"did:elastos:foobar",
     "controller":[
-        "did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnyms",
+        "did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym",
         "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
     ],
     "expires":"2025-10-12T05:50:59Z",

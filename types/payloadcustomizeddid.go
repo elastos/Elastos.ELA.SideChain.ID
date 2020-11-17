@@ -399,7 +399,7 @@ type VerifiableCredentialPayload struct {
 	// DIDProofInfo
 	Proof interface{} `json:"proof"`
 
-	Doc *VerifiableCredential
+	Doc *VerifiableCredentialDoc
 }
 
 func (p *VerifiableCredentialPayload) Data(version byte) []byte {
@@ -486,7 +486,7 @@ func (p *VerifiableCredentialPayload) Deserialize(r io.Reader, version byte) err
 	if err != nil {
 		return errors.New("[VerifiableCredentialPayload], payload decode failed")
 	}
-	doc := new(VerifiableCredential)
+	doc := new(VerifiableCredentialDoc)
 	if err := json.Unmarshal(pBytes, doc); err != nil {
 		return errors.New("[VerifiableCredentialPayload], payload unmarshal failed")
 	}
@@ -496,7 +496,7 @@ func (p *VerifiableCredentialPayload) Deserialize(r io.Reader, version byte) err
 
 func (p *VerifiableCredentialPayload) GetData() []byte {
 	var dataString string
-	if p.Header.Operation == Update_Customized_DID_Operation {
+	if p.Header.Operation == Revoke_Verifiable_Credential_Operation {
 		dataString = p.Header.Specification + p.Header.Operation + p.Header.
 			PreviousTxid + p.Payload
 

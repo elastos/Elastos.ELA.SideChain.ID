@@ -29,10 +29,11 @@ import (
 )
 
 const (
-	CheckRegisterDIDFuncName   = "checkregisterdid"
-	CheckUpdateDIDFuncName     = "checkupdatedid"
-	CheckDeactivateDIDFuncName = "checkdeactivatedid"
-	CheckCustomizedDIDFuncName = "checkcustomizeddid"
+	CheckRegisterDIDFuncName          = "checkregisterdid"
+	CheckUpdateDIDFuncName            = "checkupdatedid"
+	CheckDeactivateDIDFuncName        = "checkdeactivatedid"
+	CheckCustomizedDIDFuncName        = "checkcustomizeddid"
+	CheckVerifiableCredentialFuncName = "checkverifiablecredential"
 )
 const PrefixCRDID contract.PrefixType = 0x67
 
@@ -70,7 +71,7 @@ func NewValidator(cfg *mempool.Config, store *blockchain.IDChainStore, didParams
 	val.RegisterContextFunc(CheckRegisterDIDFuncName, val.checkRegisterDID)
 	val.RegisterContextFunc(CheckDeactivateDIDFuncName, val.checkDeactivateDID)
 	val.RegisterContextFunc(CheckCustomizedDIDFuncName, val.checkCustomizedDID)
-	val.RegisterContextFunc(CheckCustomizedDIDFuncName, val.checkVerifiableCredential)
+	val.RegisterContextFunc(CheckVerifiableCredentialFuncName, val.checkVerifiableCredential)
 
 	return &val
 }
@@ -93,6 +94,7 @@ func (v *validator) checkTransactionPayload(txn *types.Transaction) error {
 	case *id.Operation:
 	case *id.DeactivateDIDOptPayload:
 	case *id.CustomizedDIDOperation:
+	case *id.VerifiableCredentialPayload:
 	default:
 		return errors.New("[ID CheckTransactionPayload] [txValidator],invalidate transaction payload type.")
 	}
@@ -609,6 +611,7 @@ func (v *validator) checkVeriﬁableCredential(DID string, VerifiableCredential 
 		cridential.VerifiableCredentialData.CompleteCompact(DID)
 		// verify proof
 		var success bool
+
 		success, err = v.VerifyByVM(cridential.VerifiableCredentialData, issuerCode, signature)
 		if err != nil {
 			return err
@@ -840,6 +843,10 @@ func (v *validator) checkDIDOperation(header *id.DIDHeaderInfo,
 //if one credential is revoke  can not be decalre or revoke again
 func (v *validator) checkVerifiableCredentialOperation(header *id.CustomizedDIDHeaderInfo,
 	CredentialID string) error {
+	if header.Operation != id.Declare_Verifiable_Credential_Operation &&
+		header.Operation != id.Revoke_Verifiable_Credential_Operation {
+		return errors.New("checkVerifiableCredentialOperation WRONG OPERATION")
+	}
 	buf := new(bytes.Buffer)
 	buf.WriteString(CredentialID)
 	lastTXData, err := v.Store.GetLastVerifiableCredentialTxData(buf.Bytes())
@@ -930,7 +937,7 @@ func GetMultisignMN(mulstiSign string) (int, int, error) {
 	return M, N, nil
 }
 
-func GetVerifiableCredentialID(cridential *id.VerifiableCredential) string {
+func GetVerifiableCredentialID(cridential *id.VerifiableCredentialDoc) string {
 	creSub := cridential.CredentialSubject.(map[string]interface{})
 	ID := ""
 	for k, v := range creSub {
@@ -1010,7 +1017,7 @@ func (v *validator) checkDIDVerifiableCredential(did string, credPayload *id.Ver
 			return errors.New("[VM] Check Sig FALSE")
 		}
 	}
-	if err = v.checkVeriﬁableCredential(did, verifyPayloadinfo.VerifiableCredential,
+	if err = v.checkVeriﬁableCredential(did, []id.VerifiableCredential{*credPayload.Doc.VerifiableCredential},
 		verifyPayloadinfo.Authentication, verifyPayloadinfo.PublicKey); err != nil {
 		return err
 	}
@@ -1039,7 +1046,7 @@ func (v *validator) checkCustomizedDIDVerifiableCredential(customizedDID string,
 	//2,DIDProofInfo VerificationMethod must be in CustomizedDIDPayload Authentication or
 	//is come from controller
 
-	DIDProofArray, err := v.checkCustomizedDIDAllVerificationMethod(verifyDoc, payload)
+	DIDProofArray, err := v.checkCustomizedDIDAllVerificationMethod(verifyDoc, payload.Proof)
 	if err != nil {
 		return err
 	}
@@ -1050,7 +1057,7 @@ func (v *validator) checkCustomizedDIDVerifiableCredential(customizedDID string,
 		return err
 	}
 	//4, Verifiable credential
-	if err = v.checkVeriﬁableCredential(verifyDoc.ID, verifyDoc.VerifiableCredential,
+	if err = v.checkVeriﬁableCredential(verifyDoc.ID, []id.VerifiableCredential{*payload.Doc.VerifiableCredential},
 		verifyDoc.Authentication, verifyDoc.PublicKey); err != nil {
 		return err
 	}
@@ -1095,14 +1102,8 @@ func (v *validator) checkVerifiableCredential(txn *types.Transaction) error {
 //	if operation is "create" use now m/n and public key otherwise use last time m/n and public key
 func (v *validator) getVerifyDocMultisign(customizedID string) (*id.CustomizedDIDPayload,
 	string, error) {
-
-	did := v.Store.GetDIDFromUri(customizedID)
-	if did == "" {
-		return nil, "", errors.New("WRONG DID FORMAT")
-	}
-
 	buf := new(bytes.Buffer)
-	buf.WriteString(did)
+	buf.WriteString(customizedID)
 	transactionData, err := v.Store.GetLastCustomizedDIDTxData(buf.Bytes())
 	if err != nil {
 		return nil, "", err
@@ -1175,7 +1176,6 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction) error {
 
 	//1, if it is "create" use now m/n and public key otherwise use last time m/n and public key
 	//var verifyDoc *id.CustomizedDIDPayload
-	///////////////////////////////
 	var verifyDoc *id.CustomizedDIDPayload
 	var multisignStr string
 	if customizedDIDPayload.Header.Operation == id.Create_Customized_DID_Operation {
