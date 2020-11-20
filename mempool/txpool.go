@@ -13,6 +13,7 @@ const SlotRegisterDID = "registerdid"
 const SlotDeactivateDID = "deactivatedid"
 const SlotCustomizedDID = "customizeddid"
 const SlotVerifiableCredential = "verifiablecredential"
+const SlotDeactivateCustomizedDID = "deactivatecustomizeddid"
 
 func New(cfg *memp.Config) *memp.TxPool {
 	txPool := memp.New(cfg)
@@ -31,6 +32,15 @@ func New(cfg *memp.Config) *memp.TxPool {
 			memp.KeyTypeFuncPair{
 				Type: types.DeactivateDID,
 				Func: addDeactivateDIDTransactionHash,
+			},
+		),
+	})
+	txPool.AddConflictSlot(&memp.Conflict{
+		Name: SlotDeactivateCustomizedDID,
+		Slot: memp.NewConflictSlot(memp.Str,
+			memp.KeyTypeFuncPair{
+				Type: types.DeactivateCustomizedDIDTxType,
+				Func: addDeactivateCustomizedDIDTransaction,
 			},
 		),
 	})
@@ -79,6 +89,16 @@ func addDeactivateDIDTransactionHash(
 	}
 	return did, nil
 }
+
+func addDeactivateCustomizedDIDTransaction(
+	chain *blockchain.BlockChain, tx *sctype.Transaction) (interface{}, error) {
+	deactivateCustomizedDIDPayload, ok := tx.Payload.(*types.DeactivateCustomizedDIDPayload)
+	if !ok {
+		return nil, errors.New("convert the payload of deactivateCustomizedDIDPayload tx failed")
+	}
+	return deactivateCustomizedDIDPayload.Payload, nil
+}
+
 func addCustomizedDIDTransactionHash(
 	chain *blockchain.BlockChain, tx *sctype.Transaction) (interface{}, error) {
 	regPayload, ok := tx.Payload.(*types.CustomizedDIDOperation)

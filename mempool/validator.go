@@ -29,11 +29,12 @@ import (
 )
 
 const (
-	CheckRegisterDIDFuncName          = "checkregisterdid"
-	CheckUpdateDIDFuncName            = "checkupdatedid"
-	CheckDeactivateDIDFuncName        = "checkdeactivatedid"
-	CheckCustomizedDIDFuncName        = "checkcustomizeddid"
-	CheckVerifiableCredentialFuncName = "checkverifiablecredential"
+	CheckRegisterDIDFuncName             = "checkregisterdid"
+	CheckUpdateDIDFuncName               = "checkupdatedid"
+	CheckDeactivateDIDFuncName           = "checkdeactivatedid"
+	CheckCustomizedDIDFuncName           = "checkcustomizeddid"
+	CheckVerifiableCredentialFuncName    = "checkverifiablecredential"
+	CheckDeactivateCustomizedDIDFuncName = "checkdeactivatecustomizeddid"
 )
 const PrefixCRDID contract.PrefixType = 0x67
 
@@ -72,6 +73,7 @@ func NewValidator(cfg *mempool.Config, store *blockchain.IDChainStore, didParams
 	val.RegisterContextFunc(CheckDeactivateDIDFuncName, val.checkDeactivateDID)
 	val.RegisterContextFunc(CheckCustomizedDIDFuncName, val.checkCustomizedDID)
 	val.RegisterContextFunc(CheckVerifiableCredentialFuncName, val.checkVerifiableCredential)
+	val.RegisterContextFunc(CheckDeactivateCustomizedDIDFuncName, val.checkCustomizedDIDDeactivateTX)
 
 	return &val
 }
@@ -95,6 +97,7 @@ func (v *validator) checkTransactionPayload(txn *types.Transaction) error {
 	case *id.DeactivateDIDOptPayload:
 	case *id.CustomizedDIDOperation:
 	case *id.VerifiableCredentialPayload:
+	case *id.DeactivateCustomizedDIDPayload:
 	default:
 		return errors.New("[ID CheckTransactionPayload] [txValidator],invalidate transaction payload type.")
 	}
@@ -1286,6 +1289,59 @@ func (v *validator) checkRegisterDID(txn *types.Transaction) error {
 	return nil
 }
 
+//DeactivateCustomizedDIDTxType
+func (v *validator) checkCustomizedDIDDeactivateTX(txn *types.Transaction) error {
+	//payload type check
+	if txn.TxType != id.DeactivateCustomizedDIDTxType {
+		return nil
+	}
+	payload, ok := txn.Payload.(*id.DeactivateCustomizedDIDPayload)
+	if !ok {
+		return errors.New("invalid DeactivateCustomizedDIDPayload")
+	}
+	//targetDIDUri := payload.payload
+	targetDID := payload.Payload
+	if targetDID == "" {
+		return errors.New("WRONG customizedDID FORMAT")
+	}
+
+	buf := new(bytes.Buffer)
+	buf.WriteString(targetDID)
+	lastTXData, err := v.Store.GetLastCustomizedDIDTxData(buf.Bytes())
+	if err != nil {
+		return err
+	}
+
+	//do not deactivage a did who was already deactivate
+	if v.Store.IsCustomizedDIDDeactivated(targetDID) {
+		return errors.New("customizedDID WAS AREADY DEACTIVE")
+	}
+
+	N := 0
+	multisignStr := payload.Header.Multisign
+	if multisignStr != "" {
+		_, N, err = GetMultisignMN(multisignStr)
+		if err != nil {
+			return err
+		}
+	}
+	//2,DIDProofInfo VerificationMethod must be in CustomizedDIDPayload Authentication or
+	//is come from controller
+
+	DIDProofArray, err := v.checkCustomizedDIDAllVerificationMethod(lastTXData.Operation.Doc, payload.Proof)
+	if err != nil {
+		return err
+	}
+
+	//3, proof multisign verify
+	err = v.checkCustomizedDIDProof(DIDProofArray, payload, N, lastTXData.Operation.Doc)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (v *validator) checkDeactivateDID(txn *types.Transaction) error {
 	//payload type check
 	if txn.TxType != id.DeactivateDID {
@@ -1293,7 +1349,7 @@ func (v *validator) checkDeactivateDID(txn *types.Transaction) error {
 	}
 	deactivateDIDOpt, ok := txn.Payload.(*id.DeactivateDIDOptPayload)
 	if !ok {
-		return errors.New("invalid Operation")
+		return errors.New("invalid DeactivateDIDOptPayload")
 	}
 	targetDIDUri := deactivateDIDOpt.Payload
 	targetDID := v.Store.GetDIDFromUri(targetDIDUri)
