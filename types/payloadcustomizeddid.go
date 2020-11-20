@@ -14,6 +14,7 @@ import (
 
 const CustomizedDIDVersion = 0x00
 const VerifiableCredentialVersion = 0x00
+const DeactivatedCustomizedDIDVersion = 0x00
 
 const (
 	Create_Customized_DID_Operation     = "create"
@@ -495,6 +496,108 @@ func (p *VerifiableCredentialPayload) Deserialize(r io.Reader, version byte) err
 }
 
 func (p *VerifiableCredentialPayload) GetData() []byte {
+	var dataString string
+	if p.Header.Operation == Revoke_Verifiable_Credential_Operation {
+		dataString = p.Header.Specification + p.Header.Operation + p.Header.
+			PreviousTxid + p.Payload
+
+	} else {
+		dataString = p.Header.Specification + p.Header.Operation + p.Payload
+
+	}
+	return []byte(dataString)
+}
+
+// payload of DID transaction
+type DeactivateCustomizedDIDPayload struct {
+	Header  CustomizedDIDHeaderInfo `json:"header"`
+	Payload string                  `json:"payload"`
+	// DIDProofInfo
+	Proof interface{} `json:"proof"`
+}
+
+func (p *DeactivateCustomizedDIDPayload) Data(version byte) []byte {
+	buf := new(bytes.Buffer)
+	if err := p.Header.Serialize(buf, version); err != nil {
+		return nil
+	}
+	if err := common.WriteVarString(buf, p.Payload); err != nil {
+		return nil
+	}
+	return buf.Bytes()
+}
+
+func (p *DeactivateCustomizedDIDPayload) Serialize(w io.Writer, version byte) error {
+	if err := p.Header.Serialize(w, version); err != nil {
+		return errors.New("[DeactivateCustomizedDIDPayload], Header serialize failed," + err.Error())
+	}
+
+	if err := common.WriteVarString(w, p.Payload); err != nil {
+		return errors.New("[DeactivateCustomizedDIDPayload], Payload serialize failed")
+	}
+	//serialize DIDProofArray []*id.DIDProofInfo
+	if DIDProofArray, ok := p.Proof.([]*DIDProofInfo); ok == true {
+		if err := common.WriteVarUint(w, uint64(len(DIDProofArray))); err != nil {
+			return errors.New("DIDProofArray length serialization failed.")
+		}
+		for _, CustomizedDIDProof := range DIDProofArray {
+			if err := CustomizedDIDProof.Serialize(w, DeactivatedCustomizedDIDVersion); err != nil {
+				return err
+			}
+		}
+	} else if CustomizedDIDProof, ok := p.Proof.(*DIDProofInfo); ok == true {
+		if err := common.WriteVarUint(w, uint64(1)); err != nil {
+			return errors.New("DIDProofArray 1 serialization failed.")
+		}
+		//serialize CustomizedDIDProof
+		CustomizedDIDProof.Serialize(w, DeactivatedCustomizedDIDVersion)
+	} else {
+		//error
+		return errors.New("Invalid Proof type")
+
+	}
+
+	return nil
+}
+
+func (p *DeactivateCustomizedDIDPayload) Deserialize(r io.Reader, version byte) error {
+	if err := p.Header.Deserialize(r, version); err != nil {
+		return errors.New("[DeactivateCustomizedDIDPayload], Header deserialize failed" + err.Error())
+	}
+
+	payload, err := common.ReadVarString(r)
+	if err != nil {
+		return errors.New("[DeactivateCustomizedDIDPayload], payload deserialize failed")
+	}
+	p.Payload = payload
+
+	count, err := common.ReadVarUint(r, 0)
+	if err != nil {
+		return err
+	}
+	if count > 1 {
+		var didProofInfoArray []DIDProofInfo
+		for i := uint64(0); i < count; i++ {
+			var didProofInfo DIDProofInfo
+			if err := didProofInfo.Deserialize(r, version); err != nil {
+				return err
+			}
+			didProofInfoArray = append(didProofInfoArray, didProofInfo)
+			p.Proof = &didProofInfoArray
+		}
+	} else if count == 1 {
+		var didProofInfo DIDProofInfo
+		if err := didProofInfo.Deserialize(r, version); err != nil {
+			return err
+		}
+		p.Proof = &didProofInfo
+	} else {
+		errors.New("[DeactivateCustomizedDIDPayload], Proof count invalid")
+	}
+	return nil
+}
+
+func (p *DeactivateCustomizedDIDPayload) GetData() []byte {
 	var dataString string
 	if p.Header.Operation == Revoke_Verifiable_Credential_Operation {
 		dataString = p.Header.Specification + p.Header.Operation + p.Header.

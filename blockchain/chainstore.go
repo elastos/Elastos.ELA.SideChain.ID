@@ -17,6 +17,7 @@ import (
 )
 
 const (
+	IX_DeactivateCustomizedDID           blockchain.EntryPrefix = 0x89
 	IX_VerifiableCredentialExpiresHeight blockchain.EntryPrefix = 0x90
 	IX_VerifiableCredentialTXHash        blockchain.EntryPrefix = 0x91
 	IX_VerifiableCredentialPayload       blockchain.EntryPrefix = 0x92
@@ -98,6 +99,15 @@ func (c *IDChainStore) persistTransactions(batch database.Batch, b *types.Block)
 				return errors.New("invalid deactivate DID")
 			}
 			if err := c.persistDeactivateDIDTx(batch, []byte(id)); err != nil {
+				return err
+			}
+		case id.DeactivateCustomizedDIDTxType:
+			deactivateCustomizedDIDPayload := txn.Payload.(*id.DeactivateCustomizedDIDPayload)
+			id := deactivateCustomizedDIDPayload.Payload
+			if id == "" {
+				return errors.New("invalid CustomizedDID ")
+			}
+			if err := c.persistDeactivateCustomizedDIDTx(batch, []byte(id)); err != nil {
 				return err
 			}
 		case id.CustomizedDID:
@@ -200,7 +210,18 @@ func (c *IDChainStore) rollbackTransactions(batch database.Batch, b *types.Block
 			if err := c.rollbackDeactivateDIDTx(batch, []byte(id), txn); err != nil {
 				return err
 			}
+		case id.DeactivateCustomizedDIDTxType:
+			deactivateCustomizedDID := txn.Payload.(*id.DeactivateCustomizedDIDPayload)
+			customizeDID := deactivateCustomizedDID.Payload
+			if customizeDID == "" {
+				return errors.New("invalid deactivateCustomizedDID.Payload")
+			}
+			if err := c.rollbackDeactivateCustomizedDIDTx(batch, []byte(customizeDID), txn); err != nil {
+				return err
+			}
+
 		}
+
 	}
 
 	return nil
@@ -303,6 +324,17 @@ func (c *IDChainStore) persistVerifiableCredentialTx(batch database.Batch,
 	return nil
 }
 
+func (c *IDChainStore) persistDeactivateCustomizedDIDTx(batch database.Batch, idKey []byte) error {
+	key := []byte{byte(IX_DeactivateCustomizedDID)}
+	key = append(key, idKey...)
+
+	buf := new(bytes.Buffer)
+	if err := common.WriteVarUint(buf, 1); err != nil {
+		return err
+	}
+	return batch.Put(key, buf.Bytes())
+}
+
 func (c *IDChainStore) persistCustomizedDIDTx(batch database.Batch,
 	idKey []byte, tx *types.Transaction, blockHeight uint32,
 	blockTimeStamp uint32) error {
@@ -358,6 +390,20 @@ func (c *IDChainStore) IsDIDDeactivated(did string) bool {
 	idKey.WriteString(did)
 
 	key := []byte{byte(IX_DIDDeactivate)}
+	key = append(key, idKey.Bytes()...)
+
+	_, err := c.Get(key)
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func (c *IDChainStore) IsCustomizedDIDDeactivated(did string) bool {
+	idKey := new(bytes.Buffer)
+	idKey.WriteString(did)
+
+	key := []byte{byte(IX_DeactivateCustomizedDID)}
 	key = append(key, idKey.Bytes()...)
 
 	_, err := c.Get(key)
@@ -947,6 +993,18 @@ func (c *IDChainStore) rollbackCustomizedDIDTx(batch database.Batch,
 		return err
 	}
 	return batch.Put(key, buf.Bytes())
+}
+
+func (c *IDChainStore) rollbackDeactivateCustomizedDIDTx(batch database.Batch,
+	idKey []byte, tx *types.Transaction) error {
+	key := []byte{byte(IX_DeactivateCustomizedDID)}
+	key = append(key, idKey...)
+	_, err := c.Get(key)
+	if err != nil {
+		return err
+	}
+	batch.Delete(key)
+	return nil
 }
 
 func (c *IDChainStore) rollbackDeactivateDIDTx(batch database.Batch,

@@ -8,10 +8,11 @@ import (
 )
 
 const (
-	RegisterDID                types.TxType = 0x0a
-	DeactivateDID              types.TxType = 0x0b
-	CustomizedDID              types.TxType = 0x0c
-	VerifiableCredentialTxType types.TxType = 0x0d
+	RegisterDID                   types.TxType = 0x0a
+	DeactivateDID                 types.TxType = 0x0b
+	CustomizedDID                 types.TxType = 0x0c
+	VerifiableCredentialTxType    types.TxType = 0x0d
+	DeactivateCustomizedDIDTxType types.TxType = 0x0e
 )
 
 func IsRegisterIdentificationTx(tx *types.Transaction) bool {
@@ -54,6 +55,8 @@ func init() {
 			return &Operation{}, nil
 		case DeactivateDID:
 			return &DeactivateDIDOptPayload{}, nil
+		case DeactivateCustomizedDIDTxType:
+			return &DeactivateCustomizedDIDPayload{}, nil
 		case CustomizedDID:
 			return &CustomizedDIDOperation{}, nil
 		case VerifiableCredentialTxType:

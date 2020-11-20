@@ -551,6 +551,40 @@ func getCustomizedDIDTx(id, didOperation string, docBytes []byte, privateKeyStr 
 	return txn
 }
 
+func getDeactivateCustomizedDIDPayload(customizedDID, verifiacationDID string, privateKeyStr string) *types.DeactivateCustomizedDIDPayload {
+	p := &types.DeactivateCustomizedDIDPayload{
+		Header: types.CustomizedDIDHeaderInfo{
+			Specification: "elastos/did/1.0",
+			Operation:     "",
+		},
+		Payload: customizedDID,
+		Proof: &types.DIDProofInfo{
+			Type:               "ECDSAsecp256r1",
+			VerificationMethod: "did:elastos:" + verifiacationDID + "#primary",
+		},
+	}
+	privateKey1 := base58.Decode(privateKeyStr)
+	sign, _ := crypto.Sign(privateKey1, p.GetData())
+	p.Proof.(*types.DIDProofInfo).Signature = base64url.EncodeToString(sign)
+
+	publickey := base58.Decode("2BhWFosWHCKtBQpsPD3QZUY4NwCzavKdZEh6HfQDhciAY")
+	pubkey, err := crypto.DecodePoint(publickey)
+	fmt.Println(err)
+	err = crypto.Verify(*pubkey, p.GetData(), sign)
+	fmt.Println(err)
+	return p
+}
+
+//didOperation must be create or update
+func getDeactivateCustomizedDIDTx(customizedDID, verifiacationDID, privateKeyStr string) *types2.Transaction {
+
+	payloadDidInfo := getDeactivateCustomizedDIDPayload(customizedDID, verifiacationDID, privateKeyStr)
+	txn := new(types2.Transaction)
+	txn.TxType = types.DeactivateCustomizedDIDTxType
+	txn.Payload = payloadDidInfo
+	return txn
+}
+
 //didOperation must be create or update
 func getCustomizedDIDTxMultSign(id1, id2, didOperation string, docBytes []byte, privateKeyStr1, privateKeyStr2 string) *types2.Transaction {
 
@@ -779,6 +813,45 @@ func (s *txValidatorTestSuite) TestCustomizedDIDVerifiableCredentialTx2() {
 		customizedVerifableCredControllersDocBytes, privateKey1Str, privateKey2Str)
 	err := s.validator.checkVerifiableCredential(verifableCredentialTx)
 	s.NoError(err)
+}
+
+func (s *txValidatorTestSuite) TestDeactivateCustomizedDIDTX() {
+	//////////////////////////////
+	id1 := "iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"
+	privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
+	tx1 := getDIDTx(id1, "create", id1DocByts, privateKey1Str)
+
+	batch := s.validator.Store.NewBatch()
+	err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"), tx1,
+		100, 123456)
+	s.NoError(err1)
+	batch.Commit()
+
+	id2 := "ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
+	privateKey2Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
+	tx2 := getDIDTx(id2, "create", id2DocByts, privateKey2Str)
+	batch2 := s.validator.Store.NewBatch()
+	err2 := s.validator.Store.PersistRegisterDIDTx(batch2, []byte("ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"), tx2,
+		100, 123456)
+	s.NoError(err2)
+	batch2.Commit()
+
+	CustomizedDIDTx1 := getCustomizedDIDTx(id1, "create", customizedDIDDocBytes1, privateKey1Str)
+	customizedDID := "did:elastos:foobar"
+	batch3 := s.validator.Store.NewBatch()
+	err3 := s.validator.Store.PersistCustomizedDIDTx(batch3, []byte(customizedDID), CustomizedDIDTx1,
+		101, 123456)
+	s.NoError(err3)
+	batch3.Commit()
+	///////////////////////
+	//customizedDID
+	//id1 is verificationmethod did
+	//privateKey1Str outter proof sign(not for doc sign)
+	txDeactivate := getDeactivateCustomizedDIDTx(customizedDID, id1, privateKey1Str)
+	//Deactive did  have no
+	err := s.validator.checkCustomizedDIDDeactivateTX(txDeactivate)
+	s.NoError(err)
+
 }
 
 //customized did  have more than one controller
