@@ -1153,7 +1153,112 @@ func (v *validator) checkCustomizedDIDProof(DIDProofArray []*id.DIDProofInfo, iD
 	return nil
 }
 
+func (v *validator) checkCustomizedDIDTxFee(txn *types.Transaction) error {
+	customizedDIDPayload, ok := txn.Payload.(*id.CustomizedDIDOperation)
+	if !ok {
+		return errors.New("invalid CustomizedDIDOperation")
+	}
+	feeHelper := v.GetFeeHelper()
+	if feeHelper == nil {
+		return errors.New("feeHelper == nil")
+	}
+
+	txFee, err := feeHelper.GetTxFee(txn, v.GetParams().ElaAssetId)
+	if err != nil {
+		return err
+	}
+	//2. calculate the  fee that one cutomized did tx should paid
+	needFee := v.getCustomizedDIDTxFee(customizedDIDPayload)
+	a := common.Fixed64(0)
+	b := common.Fixed64(0)
+	if a > b {
+
+	}
+	if txFee <= needFee {
+		return errors.New("invalid txFee")
+	}
+
+	//check fee and should paid fee
+	return nil
+}
+
+func getCustomizedDIDLenFactor(customizeDID string) common.Fixed64 {
+	len := len(customizeDID)
+
+	if len == 1 {
+		return 6400
+	} else if len == 2 {
+		return 3200
+	} else if len >= 3 && len <= 32 {
+		//100 - [(n-1) / 8 ]
+		return 100 - ((common.Fixed64(len) - 1) / 8)
+	} else if len >= 33 && len <= 64 {
+		//93 + [(n-1) / 8 ]
+		return 93 + ((common.Fixed64(len) - 1) / 8)
+	} else {
+		//100 * (n-59) / 3
+		return 100 + ((common.Fixed64(len) - 59) / 3)
+	}
+}
+
+func (v *validator) getValidPeriodFactor(Expires string) common.Fixed64 {
+
+	expiresTime, _ := time.Parse(time.RFC3339, Expires)
+
+	n := common.Fixed64(expiresTime.Year() - v.Chain.MedianTimePast.Year())
+	//todo calculate vailid year, get median time
+	//curMediantime := v.Chain.MedianTimePast
+	//n := curMediantime - Expires
+	//n := common.Fixed64(0)
+	if n <= 0 {
+		return 1
+	}
+	return n * (101 - n) / 100
+}
+
+func getOperationFactor(operation string) common.Fixed64 {
+	if operation == id.Update_Customized_DID_Operation {
+		return 12
+	}
+	return 10
+}
+
+func getControllerFactor(controller interface{}) common.Fixed64 {
+	if controllerArray, bControllerArray := controller.([]interface{}); bControllerArray == true {
+		controllerLen := len(controllerArray)
+		if controllerLen <= 3 {
+			return 1
+		}
+		//M=2**(m-3)
+		return 2 * (common.Fixed64(controllerLen) - 3)
+	}
+	return 1
+
+}
+
+func (v *validator) getCustomizedDIDTxFee(customizedDIDPayload *id.CustomizedDIDOperation) common.Fixed64 {
+	//A id lenght
+	A := getCustomizedDIDLenFactor(customizedDIDPayload.Doc.ID)
+	//B Valid period
+	B := v.getValidPeriodFactor(customizedDIDPayload.Doc.Expires)
+	//C operation create or update
+	C := getOperationFactor(customizedDIDPayload.Header.Operation)
+	//M controller sign number
+	M := getControllerFactor(customizedDIDPayload.Doc.Controller)
+	//E doc size
+	buf := new(bytes.Buffer)
+	customizedDIDPayload.Serialize(buf, id.CustomizedDIDVersion)
+	E := common.Fixed64(buf.Len())
+	//F factor got from cr proposal
+	F := common.Fixed64(1)
+	//todo
+
+	fee := (A*B*C*M + E) * F
+	return fee
+}
+
 func (v *validator) checkCustomizedDID(txn *types.Transaction) error {
+
 	//payload type check
 	if txn.TxType != id.CustomizedDID {
 		return nil
@@ -1162,6 +1267,12 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction) error {
 	if !ok {
 		return errors.New("invalid CustomizedDIDOperation")
 	}
+
+	////check txn fee
+	if err := v.checkCustomizedDIDTxFee(txn); err != nil {
+		return err
+	}
+
 	//check Expires must be  format RFC3339
 	_, err := time.Parse(time.RFC3339, customizedDIDPayload.Doc.Expires)
 	if err != nil {
