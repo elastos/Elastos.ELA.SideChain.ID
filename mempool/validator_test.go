@@ -47,6 +47,24 @@ func (s *txValidatorTestSuite) SetupSuite() {
 		CheckRegisterDIDHeight:    0,
 		VeriﬁableCredentialHeight: 0,
 	}
+	chainCfg := blockchain.Config{
+		ChainParams: &config.Params{
+			TargetTimespan:     1,
+			TargetTimePerBlock: 2000000000,
+			AdjustmentFactor:   1,
+		},
+		ChainStore: idChainStore.ChainStore,
+		//GetTxFee:       txFeeHelper.GetTxFee,
+		//CheckTxSanity:  txValidator.CheckTransactionSanity,
+		//CheckTxContext: txValidator.CheckTransactionContext,
+	}
+	chain, err := blockchain.New(&chainCfg)
+	if err != nil {
+		os.Exit(1)
+	}
+	txFeeHelper := mempool.NewFeeHelper(cfg)
+	cfg.FeeHelper = txFeeHelper
+	cfg.Chain = chain
 	s.validator = *NewValidator(cfg, idChainStore, &didParams)
 }
 
