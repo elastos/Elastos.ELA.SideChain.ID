@@ -300,6 +300,12 @@ func (c *IDChainStore) persistRegisterDIDTx(batch database.Batch,
 	return nil
 }
 
+func (c *IDChainStore) PersistVerifiableCredentialTx(batch database.Batch,
+	idKey []byte, tx *types.Transaction, blockHeight uint32,
+	blockTimeStamp uint32) error {
+	return c.persistVerifiableCredentialTx(batch, idKey, tx, blockHeight, blockTimeStamp)
+}
+
 //persistVerifiableCredentialTx
 func (c *IDChainStore) persistVerifiableCredentialTx(batch database.Batch,
 	idKey []byte, tx *types.Transaction, blockHeight uint32,

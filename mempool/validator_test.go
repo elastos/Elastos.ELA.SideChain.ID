@@ -107,6 +107,7 @@ var (
 	customizedVerifableCredControllersDocBytes []byte
 
 	DIDVerifableCredDocBytes []byte
+	headerPayloadByts        []byte
 )
 
 func init() {
@@ -120,6 +121,9 @@ func init() {
 	customizedVerifableCredControllersDocBytes, _ = types.LoadJsonData("./testdata/customized_did_verifiable_credential_controllers.json")
 
 	fmt.Println("customizedVerifableCredControllersDocBytes", string(customizedVerifableCredControllersDocBytes))
+	id3DocByts, _ = types.LoadJsonData("./testdata/issuer.json")
+	id3DocByts, _ = types.LoadJsonData("./testdata/issuer.json")
+	headerPayloadByts, _ = types.LoadJsonData("./testdata/customized_did_multi_controllers.json")
 
 }
 
@@ -647,7 +651,8 @@ func getCustomizedDIDVerifiableCredentialTx(id, didOperation string, docBytes []
 }
 
 //issuer.json SelfProclaimedCredential
-func (s *txValidatorTestSuite) Test01SelfProclaimedCredential() {
+func (s *txValidatorTestSuite) TestSelfProclaimedCredential() {
+	s.SetupSuite()
 	privateKey3Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
 	id3 := "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
 
@@ -662,8 +667,7 @@ func (s *txValidatorTestSuite) Test01SelfProclaimedCredential() {
 
 }
 
-func (s *txValidatorTestSuite) Test0CheckRegisterDID() {
-
+func (s *txValidatorTestSuite) TestCheckRegisterDID() {
 	id1 := "did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"
 	privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
 
@@ -730,20 +734,21 @@ func (s *txValidatorTestSuite) TestCustomizedDIDMultSign() {
 
 }
 
+//self verifiable credential
 func (s *txValidatorTestSuite) Test0DIDVerifiableCredentialTx() {
-	id1 := "iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"
-	privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
-	tx1 := getDIDTx(id1, "create", id1DocByts, privateKey1Str)
-
-	batch := s.validator.Store.NewBatch()
-	err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"), tx1,
-		100, 123456)
-	s.NoError(err1)
-	batch.Commit()
-
-	CustomizedDIDTx1 := getCustomizedDIDTx(id1, "create", customizedDIDDocBytes1, privateKey1Str)
-	err1 = s.validator.checkCustomizedDID(CustomizedDIDTx1)
-	s.NoError(err1)
+	//id1 := "iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"
+	//privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
+	//tx1 := getDIDTx(id1, "create", id1DocByts, privateKey1Str)
+	//
+	//batch := s.validator.Store.NewBatch()
+	//err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"), tx1,
+	//	100, 123456)
+	//s.NoError(err1)
+	//batch.Commit()
+	//
+	//CustomizedDIDTx1 := getCustomizedDIDTx(id1, "create", customizedDIDDocBytes1, privateKey1Str)
+	//err1 = s.validator.checkCustomizedDID(CustomizedDIDTx1)
+	//s.NoError(err1)
 
 	privateKey2Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
 	id2 := "ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
@@ -753,8 +758,9 @@ func (s *txValidatorTestSuite) Test0DIDVerifiableCredentialTx() {
 		100, 123456)
 	s.NoError(err2)
 	batch2.Commit()
-
-	verifableCredentialTx := getCustomizedDIDVerifiableCredentialTx("did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym",
+	//did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB
+	//
+	verifableCredentialTx := getCustomizedDIDVerifiableCredentialTx("did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB",
 		"declare",
 		DIDVerifableCredDocBytes, privateKey2Str)
 	err := s.validator.checkVerifiableCredential(verifableCredentialTx)
@@ -762,6 +768,7 @@ func (s *txValidatorTestSuite) Test0DIDVerifiableCredentialTx() {
 
 }
 
+// one cotroller
 func (s *txValidatorTestSuite) TestCustomizedDIDVerifiableCredentialTx() {
 	id1 := "iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"
 	privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
@@ -794,10 +801,29 @@ func (s *txValidatorTestSuite) TestCustomizedDIDVerifiableCredentialTx() {
 		"declare", customizedVerifableCredDocBytes, privateKey1Str)
 	err := s.validator.checkVerifiableCredential(verifableCredentialTx)
 	s.NoError(err)
+
+	credentialID := "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB#profile"
+	batch4 := s.validator.Store.NewBatch()
+	err4 := s.validator.Store.PersistVerifiableCredentialTx(batch4, []byte(credentialID), verifableCredentialTx,
+		100, 123456)
+	s.NoError(err4)
+	batch4.Commit()
+
+	//txDeactivate := getDeactivateCustomizedDIDTx(credentialID, id2, privateKey2Str)
+	////Deactive did  have no
+	//err5 := s.validator.checkCustomizedDIDDeactivateTX(txDeactivate)
+	//s.NoError(err5)
+	////////////////////////////
+	//verifableCredentialRevokeTx := getCustomizedDIDVerifiableCredentialTx("iWFAUYhTa35c1fPe3iCJvihZHx6quumnym",
+	//	"revoke", customizedVerifableCredDocBytes, privateKey2Str)
+	//err5 := s.validator.checkVerifiableCredential(verifableCredentialRevokeTx)
+	//s.NoError(err5)
+	////////////////////////////////
 }
 
 //more than  one cotroller
 func (s *txValidatorTestSuite) TestCustomizedDIDVerifiableCredentialTx2() {
+	s.SetupSuite()
 	id1 := "iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"
 	privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
 	id2 := "ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
@@ -919,4 +945,26 @@ func getCustomizedDIDVerifiableCredPayloadContollers(id1, id2 string, didOperati
 
 	p.Proof = Proofs
 	return p
+}
+
+func (s *txValidatorTestSuite) TestHeaderPayloadDIDTX() {
+	fmt.Println("TestHeaderPayloadDIDTX begin")
+
+	operation := new(types.Operation)
+	json.Unmarshal(headerPayloadByts, operation)
+	fmt.Printf("%+v \n", *operation)
+
+	decodePayload, err := base64url.DecodeString(operation.Payload)
+	s.NoError(err)
+
+	info := new(types.DIDPayloadInfo)
+	json.Unmarshal(decodePayload, info)
+	operation.PayloadInfo = info
+	txn := new(types2.Transaction)
+	txn.TxType = types.RegisterDID
+	txn.Payload = operation
+	err2 := s.validator.checkRegisterDID(txn)
+	s.NoError(err2)
+	fmt.Println("TestHeaderPayloadDIDTX end")
+
 }
