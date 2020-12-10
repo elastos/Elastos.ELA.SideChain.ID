@@ -195,12 +195,17 @@ func (s *HttpService) ResolveDID(param http.Params) (interface{}, error) {
 
 	var rpcPayloadDid RpcPayloadDIDInfo
 
-	expiresHeight, err := s.store.GetExpiresHeight(buf.Bytes())
+	//expiresHeight, err := s.store.GetExpiresHeight(buf.Bytes())
+	txData, err := s.store.GetLastDIDTxData(buf.Bytes())
 	if err != nil {
 		rpcPayloadDid.DID = idParam
 		rpcPayloadDid.Status = NonExist
 		return rpcPayloadDid, nil
+	}
 
+	expiresTime, err := time.Parse(time.RFC3339, txData.Operation.PayloadInfo.Expires)
+	if err != nil {
+		return nil, http.NewError(int(service.InternalError), "Parse Expires failed")
 	}
 
 	var txsData []id.TranasactionData
@@ -212,11 +217,11 @@ func (s *HttpService) ResolveDID(param http.Params) (interface{}, error) {
 		}
 
 	} else {
-		txData, err := s.store.GetLastDIDTxData(buf.Bytes())
-		if err != nil {
-			return nil, http.NewError(int(service.InternalError),
-				"get did transactions failed")
-		}
+		//txData, err := s.store.GetLastDIDTxData(buf.Bytes())
+		//if err != nil {
+		//	return nil, http.NewError(int(service.InternalError),
+		//		"get did transactions failed")
+		//}
 		if txData != nil {
 			txsData = append(txsData, *txData)
 		}
@@ -240,7 +245,7 @@ func (s *HttpService) ResolveDID(param http.Params) (interface{}, error) {
 				didDocState = Deactivated
 			} else {
 				didDocState = Valid
-				if s.store.ChainStore.GetHeight() > expiresHeight {
+				if s.cfg.Chain.MedianTimePast.After(expiresTime) {
 					didDocState = Expired
 				}
 			}
