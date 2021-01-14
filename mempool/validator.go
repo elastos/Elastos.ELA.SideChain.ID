@@ -69,7 +69,7 @@ func NewValidator(cfg *mempool.Config, store *blockchain.IDChainStore, didParams
 	return &val
 }
 
-func (v *validator) checkTransactionPayload(txn *types.Transaction) error {
+func (v *validator) checkTransactionPayload(txn *types.Transaction, height uint32, mainChainHeight uint32) error {
 	switch pld := txn.Payload.(type) {
 	case *types.PayloadRegisterAsset:
 		if pld.Asset.Precision < types.MinPrecision || pld.Asset.Precision > types.MaxPrecision {
@@ -95,7 +95,7 @@ func checkAmountPrecise(amount common.Fixed64, precision byte, assetPrecision by
 	return amount.IntValue()%int64(math.Pow10(int(assetPrecision-precision))) == 0
 }
 
-func (v *validator) checkTransactionOutput(txn *types.Transaction) error {
+func (v *validator) checkTransactionOutput(txn *types.Transaction, height uint32, mainChainHeight uint32) error {
 	if len(txn.Outputs) < 1 {
 		return errors.New("[checkTransactionOutput] transaction has no outputs")
 	}
@@ -127,7 +127,7 @@ func checkOutputProgramHash(programHash common.Uint168) bool {
 	return false
 }
 
-func (v *validator) checkTransactionSignature(txn *types.Transaction) error {
+func (v *validator) checkTransactionSignature(txn *types.Transaction, height uint32, mainChainHeight uint32) error {
 	if txn.IsRechargeToSideChainTx() {
 		if err := v.spvService.VerifyTransaction(txn); err != nil {
 			return errors.New("[ID checkTransactionSignature] Invalide recharge to side chain tx: " + err.Error())
@@ -541,7 +541,7 @@ func (v *validator) checkDIDOperation(header *id.DIDHeaderInfo,
 	return nil
 }
 
-func (v *validator) checkRegisterDID(txn *types.Transaction) error {
+func (v *validator) checkRegisterDID(txn *types.Transaction, height uint32, mainChainHeight uint32) error {
 	//payload type check
 	if txn.TxType != id.RegisterDID {
 		return nil
