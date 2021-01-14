@@ -197,7 +197,7 @@ func (s *txValidatorTestSuite) TestIDChainStore_CreateDIDTx() {
 	i, _ := getDIDByPublicKey(data)
 	didAddress, _ := i.ToAddress()
 	fmt.Println("didAddress", didAddress)
-	err := s.validator.checkRegisterDID(tx)
+	err := s.validator.checkRegisterDID(tx, 0, 0)
 	s.NoError(err)
 
 	info := new(types.Operation)
@@ -209,19 +209,19 @@ func (s *txValidatorTestSuite) TestIDChainStore_CreateDIDTx() {
 	info.PayloadInfo = payloadInfo
 
 	tx.Payload = info
-	err = s.validator.checkRegisterDID(tx)
+	err = s.validator.checkRegisterDID(tx, 0, 0)
 	s.NoError(err)
 
 	info.PayloadInfo.Expires = "Mon Jan _2 15:04:05 2006"
-	err = s.validator.checkRegisterDID(tx)
+	err = s.validator.checkRegisterDID(tx, 0, 0)
 	s.Error(err, "invalid Expires")
 
 	info.PayloadInfo.Expires = "2006-01-02T15:04:05Z07:00"
-	err = s.validator.checkRegisterDID(tx)
+	err = s.validator.checkRegisterDID(tx, 0, 0)
 	s.Error(err, "invalid Expires")
 
 	info.PayloadInfo.Expires = "2018-06-30T12:00:00Z"
-	err = s.validator.checkRegisterDID(tx)
+	err = s.validator.checkRegisterDID(tx, 0, 0)
 	s.NoError(err)
 
 	info = new(types.Operation)
@@ -233,7 +233,7 @@ func (s *txValidatorTestSuite) TestIDChainStore_CreateDIDTx() {
 	info.PayloadInfo = payloadInfo
 
 	tx.Payload = info
-	err = s.validator.checkRegisterDID(tx)
+	err = s.validator.checkRegisterDID(tx, 0, 0)
 	s.Error(err, "invalid Expires")
 }
 
@@ -267,14 +267,14 @@ func (s *txValidatorTestSuite) TestIDChainStore_DeactivateDIDTx() {
 		FeePerKB:       0,
 	}
 	//Deactive did  have no
-	err := s.validator.checkDeactivateDID(txDeactivate)
+	err := s.validator.checkDeactivateDID(txDeactivate, 0, 0)
 	s.Error(err, "leveldb: not found")
 
 	batch := s.validator.Store.ChainStore.NewBatch()
 	s.validator.Store.PersistRegisterDIDTx(batch, []byte(did), txCreateDID, 0, 0)
 	batch.Commit()
 
-	err = s.validator.checkDeactivateDID(txDeactivate)
+	err = s.validator.checkDeactivateDID(txDeactivate, 0, 0)
 	s.NoError(err)
 
 	//wrong public key to verify sign
@@ -291,14 +291,14 @@ func (s *txValidatorTestSuite) TestIDChainStore_DeactivateDIDTx() {
 		FeePerKB:       0,
 	}
 
-	err = s.validator.checkDeactivateDID(txDeactivateWrong)
+	err = s.validator.checkDeactivateDID(txDeactivateWrong, 0, 0)
 	s.Error(err, "[VM] Check Sig FALSE")
 
 	//deactive one deactivated did
 	batch = s.validator.Store.ChainStore.NewBatch()
 	s.validator.Store.PersistDeactivateDIDTx(batch, []byte(did))
 	batch.Commit()
-	err = s.validator.checkDeactivateDID(txDeactivateWrong)
+	err = s.validator.checkDeactivateDID(txDeactivateWrong, 0, 0)
 	s.Error(err, "DID WAS AREADY DEACTIVE")
 
 }
@@ -550,7 +550,7 @@ func (s *txValidatorTestSuite) TestGenrateTxFromRawTxStr() {
 		fmt.Println("err2", err2)
 		return
 	}
-	s.validator.checkRegisterDID(&tx)
+	s.validator.checkRegisterDID(&tx, 0, 0)
 }
 
 //didOperation must be create or update
@@ -658,11 +658,11 @@ func (s *txValidatorTestSuite) TestSelfProclaimedCredential() {
 
 	//id3DocBytes
 	tx3 := getDIDTx(id3, "create", id3DocByts, privateKey3Str)
-	err3 := s.validator.checkRegisterDID(tx3)
+	err3 := s.validator.checkRegisterDID(tx3, 0, 0)
 	s.NoError(err3)
 
 	tx3_2 := getDIDTx(id3, "create", id2DocByts, privateKey3Str)
-	err3_2 := s.validator.checkRegisterDID(tx3_2)
+	err3_2 := s.validator.checkRegisterDID(tx3_2, 0, 0)
 	s.NoError(err3_2)
 
 }
@@ -683,7 +683,7 @@ func (s *txValidatorTestSuite) TestCheckRegisterDID() {
 	s.NoError(err1)
 	batch.Commit()
 
-	err2 := s.validator.checkRegisterDID(tx1)
+	err2 := s.validator.checkRegisterDID(tx1, 0, 0)
 	s.NoError(err2)
 }
 
@@ -698,7 +698,7 @@ func (s *txValidatorTestSuite) TestCustomizedDID() {
 	s.NoError(err1)
 	batch.Commit()
 	tx3 := getCustomizedDIDTx(id1, "create", customizedDIDDocBytes1, privateKey1Str)
-	err3 := s.validator.checkCustomizedDID(tx3)
+	err3 := s.validator.checkCustomizedDID(tx3, 0, 0)
 	s.NoError(err3)
 }
 
@@ -715,7 +715,7 @@ func (s *txValidatorTestSuite) TestCustomizedDIDMultSign() {
 	batch.Commit()
 
 	CustomizedDIDTx1 := getCustomizedDIDTx(id1, "create", customizedDIDDocBytes1, privateKey1Str)
-	err1 = s.validator.checkCustomizedDID(CustomizedDIDTx1)
+	err1 = s.validator.checkCustomizedDID(CustomizedDIDTx1, 0, 0)
 	s.NoError(err1)
 
 	privateKey2Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
@@ -729,7 +729,7 @@ func (s *txValidatorTestSuite) TestCustomizedDIDMultSign() {
 
 	CustomizedDIDTx2 := getCustomizedDIDTxMultSign(id1, id2, "create", customizedDIDDocBytes2,
 		privateKey1Str, privateKey2Str)
-	err := s.validator.checkCustomizedDID(CustomizedDIDTx2)
+	err := s.validator.checkCustomizedDID(CustomizedDIDTx2, 0, 0)
 	s.NoError(err)
 
 }
@@ -763,7 +763,7 @@ func (s *txValidatorTestSuite) Test0DIDVerifiableCredentialTx() {
 	verifableCredentialTx := getCustomizedDIDVerifiableCredentialTx("did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB",
 		"declare",
 		DIDVerifableCredDocBytes, privateKey2Str)
-	err := s.validator.checkVerifiableCredential(verifableCredentialTx)
+	err := s.validator.checkVerifiableCredential(verifableCredentialTx, 0, 0)
 	s.NoError(err)
 
 }
@@ -799,7 +799,7 @@ func (s *txValidatorTestSuite) TestCustomizedDIDVerifiableCredentialTx() {
 
 	verifableCredentialTx := getCustomizedDIDVerifiableCredentialTx("iWFAUYhTa35c1fPe3iCJvihZHx6quumnym",
 		"declare", customizedVerifableCredDocBytes, privateKey1Str)
-	err := s.validator.checkVerifiableCredential(verifableCredentialTx)
+	err := s.validator.checkVerifiableCredential(verifableCredentialTx, 0, 0)
 	s.NoError(err)
 
 	credentialID := "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB#profile"
@@ -855,7 +855,7 @@ func (s *txValidatorTestSuite) TestCustomizedDIDVerifiableCredentialTx2() {
 
 	verifableCredentialTx := getCustomizedDIDVerifiableCredentialTxMultSign(id1, id2, "declare",
 		customizedVerifableCredControllersDocBytes, privateKey1Str, privateKey2Str)
-	err := s.validator.checkVerifiableCredential(verifableCredentialTx)
+	err := s.validator.checkVerifiableCredential(verifableCredentialTx, 0, 0)
 	s.NoError(err)
 }
 
@@ -893,7 +893,7 @@ func (s *txValidatorTestSuite) TestDeactivateCustomizedDIDTX() {
 	//privateKey1Str outter proof sign(not for doc sign)
 	txDeactivate := getDeactivateCustomizedDIDTx(customizedDID, id1, privateKey1Str)
 	//Deactive did  have no
-	err := s.validator.checkCustomizedDIDDeactivateTX(txDeactivate)
+	err := s.validator.checkCustomizedDIDDeactivateTX(txDeactivate, 0, 0)
 	s.NoError(err)
 
 }
@@ -963,7 +963,7 @@ func (s *txValidatorTestSuite) TestHeaderPayloadDIDTX() {
 	txn := new(types2.Transaction)
 	txn.TxType = types.RegisterDID
 	txn.Payload = operation
-	err2 := s.validator.checkRegisterDID(txn)
+	err2 := s.validator.checkRegisterDID(txn, 0, 0)
 	s.NoError(err2)
 	fmt.Println("TestHeaderPayloadDIDTX end")
 
