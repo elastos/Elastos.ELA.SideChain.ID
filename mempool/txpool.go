@@ -105,7 +105,7 @@ func addCustomizedDIDTransactionHash(
 	if !ok {
 		return nil, errors.New("convert the payload of register did tx failed")
 	}
-	return regPayload.GetPayloadInfo().ID, nil
+	return regPayload.GetPayloadInfo().CustomID, nil
 }
 
 func addVerifiableCredentialTransaction(

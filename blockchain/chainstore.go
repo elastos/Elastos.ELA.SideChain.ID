@@ -113,7 +113,7 @@ func (c *IDChainStore) persistTransactions(batch database.Batch, b *types.Block)
 		case id.CustomizedDID:
 			regPayload := txn.Payload.(*id.CustomizedDIDOperation)
 
-			id := regPayload.GetPayloadInfo().ID
+			id := regPayload.GetPayloadInfo().CustomID
 			if id == "" {
 				return errors.New("invalid regPayload.Doc.ID")
 			}
@@ -185,7 +185,7 @@ func (c *IDChainStore) rollbackTransactions(batch database.Batch, b *types.Block
 			}
 		case id.CustomizedDID:
 			regPayload := txn.Payload.(*id.CustomizedDIDOperation)
-			id := regPayload.GetPayloadInfo().ID
+			id := regPayload.GetPayloadInfo().CustomID
 			if id == "" {
 				return errors.New("invalid regPayload.Doc.ID")
 			}

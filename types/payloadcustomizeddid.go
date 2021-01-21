@@ -235,7 +235,7 @@ func (p *CustomizedDIDVerifiableCredential) GetData() []byte {
 
 // payload in DID transaction payload
 type CustomizedDIDPayload struct {
-	ID             string             `json:"id"`
+	CustomID       string             `json:"id"`
 	Controller     interface{}        `json:"controller"`
 	PublicKey      []DIDPublicKeyInfo `json:"publicKey"`
 	Authentication []interface{}      `json:"authentication"`

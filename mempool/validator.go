@@ -352,13 +352,13 @@ func (v *validator) checkCustomizedDIDAllVerificationMethod(doc *id.CustomizedDI
 	bDIDProofArray := false
 	if DIDProofArray, bDIDProofArray = Proof.([]*id.DIDProofInfo); bDIDProofArray == true {
 		for _, CustomizedDIDProof = range DIDProofArray {
-			if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.VerificationMethod, doc.ID,
+			if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.VerificationMethod, doc.CustomID,
 				doc.PublicKey, doc.Authentication, doc.Controller); err != nil {
 				return nil, err
 			}
 		}
 	} else if CustomizedDIDProof, bExist = Proof.(*id.DIDProofInfo); bExist == true {
-		if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.VerificationMethod, doc.ID,
+		if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.VerificationMethod, doc.CustomID,
 			doc.PublicKey, doc.Authentication, doc.Controller); err != nil {
 			return nil, err
 		}
@@ -1203,7 +1203,7 @@ func (v *validator) checkCustomizedDIDVerifiableCredential(customizedDID string,
 		return err
 	}
 	//4, Verifiable credential
-	if err = v.checkVeriﬁableCredential(verifyDoc.ID, []id.VerifiableCredential{*payload.Doc.VerifiableCredential},
+	if err = v.checkVeriﬁableCredential(verifyDoc.CustomID, []id.VerifiableCredential{*payload.Doc.VerifiableCredential},
 		verifyDoc.Authentication, verifyDoc.PublicKey); err != nil {
 		return err
 	}
@@ -1277,7 +1277,7 @@ func (v *validator) checkCustomizedDIDProof(DIDProofArray []*id.DIDProofInfo, iD
 	//3, proof multisign verify
 	for _, CustomizedDIDProof := range DIDProofArray {
 		//get  public key
-		publicKeyBase58, _ := v.getPublicKeyByVerificationMethod(CustomizedDIDProof.VerificationMethod, verifyDoc.ID,
+		publicKeyBase58, _ := v.getPublicKeyByVerificationMethod(CustomizedDIDProof.VerificationMethod, verifyDoc.CustomID,
 			verifyDoc.PublicKey, verifyDoc.Authentication, verifyDoc.Controller)
 		if publicKeyBase58 == "" {
 			return errors.New("Not find proper publicKeyBase58")
@@ -1395,7 +1395,7 @@ func getControllerFactor(controller interface{}) common.Fixed64 {
 
 func (v *validator) getCustomizedDIDTxFee(customizedDIDPayload *id.CustomizedDIDOperation) common.Fixed64 {
 	//A id lenght
-	A := getCustomizedDIDLenFactor(customizedDIDPayload.Doc.ID)
+	A := getCustomizedDIDLenFactor(customizedDIDPayload.Doc.CustomID)
 	//B Valid period
 	B := v.getValidPeriodFactor(customizedDIDPayload.Doc.Expires)
 	//C operation create or update
@@ -1438,7 +1438,7 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 	//if this customized did is already exist operation should not be create
 	//if this customized did is not exist operation should not be update
 	if err := v.checkCustomizedDIDOperation(&customizedDIDPayload.Header,
-		customizedDIDPayload.Doc.ID); err != nil {
+		customizedDIDPayload.Doc.CustomID); err != nil {
 		return err
 	}
 
@@ -1453,7 +1453,7 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 		verifyDoc = customizedDIDPayload.Doc
 		multisignStr = customizedDIDPayload.Header.Multisign
 	} else {
-		verifyDoc, multisignStr, err = v.getVerifyDocMultisign(customizedDIDPayload.Doc.ID)
+		verifyDoc, multisignStr, err = v.getVerifyDocMultisign(customizedDIDPayload.Doc.CustomID)
 		if err != nil {
 			return err
 		}
@@ -1482,7 +1482,7 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 		return err
 	}
 	//4, Verifiable credential
-	if err = v.checkVeriﬁableCredential(doc.ID, doc.VerifiableCredential,
+	if err = v.checkVeriﬁableCredential(doc.CustomID, doc.VerifiableCredential,
 		doc.Authentication, doc.PublicKey); err != nil {
 		return err
 	}
