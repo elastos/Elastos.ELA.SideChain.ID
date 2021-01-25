@@ -1310,6 +1310,38 @@ func (v *validator) checkCustomizedDIDProof(DIDProofArray []*id.DIDProofInfo, iD
 	return nil
 }
 
+func (v *validator) checkCustomizedDIDAvailable(cPayload *id.CustomizedDIDOperation) error {
+	reservedCustomIDs, _ := v.spvService.GetReservedCustomIDs()
+	receivedCustomIDs, _ := v.spvService.GetReceivedCustomIDs()
+
+	for rsCustomID, _ := range reservedCustomIDs {
+		if rsCustomID == cPayload.Doc.CustomID {
+			// id count of controller need to be one
+			if getControllerLength(cPayload.Doc.Controller) != 1 {
+				return errors.New("invalid id count in controller")
+			}
+			//
+			for rcCustomID, customDID := range receivedCustomIDs {
+				if rcCustomID == cPayload.Doc.CustomID {
+					did, ok := cPayload.Doc.Controller.(string)
+					if !ok {
+						return errors.New("invalid controller")
+					}
+					rcDID, err := customDID.ToAddress()
+					if err != nil {
+						return errors.New("invalid customDID in db")
+					}
+					if !strings.Contains(did, rcDID) {
+						return errors.New("invalid controller did")
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
 func (v *validator) checkCustomizedDIDTxFee(txn *types.Transaction) error {
 	customizedDIDPayload, ok := txn.Payload.(*id.CustomizedDIDOperation)
 	if !ok {
@@ -1326,11 +1358,6 @@ func (v *validator) checkCustomizedDIDTxFee(txn *types.Transaction) error {
 	}
 	//2. calculate the  fee that one cutomized did tx should paid
 	needFee := v.getCustomizedDIDTxFee(customizedDIDPayload)
-	a := common.Fixed64(0)
-	b := common.Fixed64(0)
-	if a > b {
-
-	}
 	if txFee <= needFee {
 		return errors.New("invalid txFee")
 	}
@@ -1393,6 +1420,13 @@ func getControllerFactor(controller interface{}) common.Fixed64 {
 
 }
 
+func getControllerLength(controller interface{}) int {
+	if controllerArray, ok := controller.([]interface{}); ok == true {
+		return len(controllerArray)
+	}
+	return 1
+}
+
 func (v *validator) getCustomizedDIDTxFee(customizedDIDPayload *id.CustomizedDIDOperation) common.Fixed64 {
 	//A id lenght
 	A := getCustomizedDIDLenFactor(customizedDIDPayload.Doc.CustomID)
@@ -1408,7 +1442,10 @@ func (v *validator) getCustomizedDIDTxFee(customizedDIDPayload *id.CustomizedDID
 	E := common.Fixed64(buf.Len())
 	//F factor got from cr proposal
 	F := common.Fixed64(1)
-	//todo
+	feeRate, err := v.spvService.GetRateOfCustomIDFee()
+	if err == nil {
+		F = feeRate
+	}
 
 	fee := (A*B*C*M + E) * F
 	return fee
@@ -1423,6 +1460,11 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 	customizedDIDPayload, ok := txn.Payload.(*id.CustomizedDIDOperation)
 	if !ok {
 		return errors.New("invalid CustomizedDIDOperation")
+	}
+
+	// check Custom ID available?
+	if err := v.checkCustomizedDIDAvailable(customizedDIDPayload); err != nil {
+		return err
 	}
 
 	////check txn fee

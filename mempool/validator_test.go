@@ -17,11 +17,14 @@ import (
 	"github.com/elastos/Elastos.ELA.SideChain.ID/params"
 	"github.com/elastos/Elastos.ELA.SideChain.ID/types"
 	"github.com/elastos/Elastos.ELA.SideChain.ID/types/base64url"
+
 	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
 	"github.com/elastos/Elastos.ELA.SideChain/config"
 	"github.com/elastos/Elastos.ELA.SideChain/mempool"
+	"github.com/elastos/Elastos.ELA.SideChain/spv"
 	types2 "github.com/elastos/Elastos.ELA.SideChain/types"
 	"github.com/elastos/Elastos.ELA/common"
+	elacfg "github.com/elastos/Elastos.ELA/common/config"
 	"github.com/elastos/Elastos.ELA/crypto"
 )
 
@@ -32,12 +35,14 @@ type txValidatorTestSuite struct {
 }
 
 func (s *txValidatorTestSuite) SetupSuite() {
-	os.RemoveAll("Chain_UnitTest")
+	fmt.Println(os.RemoveAll("Chain_UnitTest"))
+	fmt.Println(os.RemoveAll("data_spv"))
 
 	idChainStore, err := bc.NewChainStore(params.
 		GenesisBlock,
 		"Chain_UnitTest")
 	if err != nil {
+		fmt.Println("failed to new NewChainStore")
 		return
 	}
 	cfg := &mempool.Config{
@@ -60,11 +65,26 @@ func (s *txValidatorTestSuite) SetupSuite() {
 	}
 	chain, err := blockchain.New(&chainCfg)
 	if err != nil {
-		os.Exit(1)
+		fmt.Println("failed to new block chain")
+		return
+	}
+	foundation, _ := common.Uint168FromAddress("8VYXVxKKSAxkmRrfmGpQR2Kc66XhG6m3ta")
+	spvCfg := spv.Config{
+		ChainParams: &elacfg.Params{
+			GenesisBlock: elacfg.GenesisBlock(foundation),
+			Foundation:   *foundation,
+		},
+		GenesisAddress: "8VYXVxKKSAxkmRrfmGpQR2Kc66XhG6m3ta",
+	}
+	spvService, err := spv.NewService(&spvCfg)
+	if err != nil {
+		fmt.Println("failed to new spvService")
+		return
 	}
 	txFeeHelper := mempool.NewFeeHelper(cfg)
 	cfg.FeeHelper = txFeeHelper
 	cfg.Chain = chain
+	cfg.SpvService = spvService
 	s.validator = *NewValidator(cfg, idChainStore, &didParams)
 }
 

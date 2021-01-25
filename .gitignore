@@ -12,6 +12,7 @@ build/
 /data_regt/*
 /data_test/*
 */Chain_UnitTest/*
+*/data_spv/*
 /go.sum
 vendor/*
 /did
