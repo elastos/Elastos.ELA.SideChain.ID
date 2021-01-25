@@ -152,7 +152,7 @@ func (s *txValidatorTestSuite) TestIDChainStore_CreateDIDTx() {
 	i, _ := getDIDByPublicKey(data)
 	didAddress, _ := i.ToAddress()
 	fmt.Println("didAddress", didAddress)
-	err := s.validator.checkRegisterDID(tx)
+	err := s.validator.checkRegisterDID(tx, 0, 0)
 	s.NoError(err)
 
 	info := new(types.Operation)
@@ -164,19 +164,19 @@ func (s *txValidatorTestSuite) TestIDChainStore_CreateDIDTx() {
 	info.PayloadInfo = payloadInfo
 
 	tx.Payload = info
-	err = s.validator.checkRegisterDID(tx)
+	err = s.validator.checkRegisterDID(tx, 0, 0)
 	s.NoError(err)
 
 	info.PayloadInfo.Expires = "Mon Jan _2 15:04:05 2006"
-	err = s.validator.checkRegisterDID(tx)
+	err = s.validator.checkRegisterDID(tx, 0, 0)
 	s.Error(err, "invalid Expires")
 
 	info.PayloadInfo.Expires = "2006-01-02T15:04:05Z07:00"
-	err = s.validator.checkRegisterDID(tx)
+	err = s.validator.checkRegisterDID(tx, 0, 0)
 	s.Error(err, "invalid Expires")
 
 	info.PayloadInfo.Expires = "2018-06-30T12:00:00Z"
-	err = s.validator.checkRegisterDID(tx)
+	err = s.validator.checkRegisterDID(tx, 0, 0)
 	s.NoError(err)
 
 	info = new(types.Operation)
@@ -188,7 +188,7 @@ func (s *txValidatorTestSuite) TestIDChainStore_CreateDIDTx() {
 	info.PayloadInfo = payloadInfo
 
 	tx.Payload = info
-	err = s.validator.checkRegisterDID(tx)
+	err = s.validator.checkRegisterDID(tx, 0, 0)
 	s.Error(err, "invalid Expires")
 }
 
@@ -357,7 +357,7 @@ func (s *txValidatorTestSuite) TestGenrateTxFromRawTxStr() {
 		fmt.Println("err2", err2)
 		return
 	}
-	s.validator.checkRegisterDID(&tx)
+	s.validator.checkRegisterDID(&tx, 0, 0)
 }
 
 //didOperation must be create or update
@@ -387,7 +387,7 @@ func (s *txValidatorTestSuite) TestCheckRegisterDID() {
 	s.NoError(err1)
 	batch.Commit()
 
-	err2 := s.validator.checkRegisterDID(tx1)
+	err2 := s.validator.checkRegisterDID(tx1, 0, 0)
 	s.NoError(err2)
 }
 
@@ -398,10 +398,10 @@ func (s *txValidatorTestSuite) TestSelfProclaimedCredential() {
 
 	//id3DocBytes
 	tx3 := getDIDTx(id3, "crate", id3DocByts, privateKey3Str)
-	err3 := s.validator.checkRegisterDID(tx3)
+	err3 := s.validator.checkRegisterDID(tx3, 0, 0)
 	s.NoError(err3)
 
 	tx3_2 := getDIDTx(id3, "crate", id2DocByts, privateKey3Str)
-	err3_2 := s.validator.checkRegisterDID(tx3_2)
+	err3_2 := s.validator.checkRegisterDID(tx3_2, 0, 0)
 	s.NoError(err3_2)
 }
