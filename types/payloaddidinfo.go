@@ -82,6 +82,13 @@ func (d *DIDHeaderInfo) Deserialize(r io.Reader, version byte) error {
 	return nil
 }
 
+type TransferDIDProofInfo struct {
+	Type               string `json:"type,omitempty"`
+	Created            string `json:"created"`
+	VerificationMethod string `json:"verificationMethod"`
+	SignatureValue     string `json:"signatureValue"`
+}
+
 // Proof of DID transaction payload
 type DIDProofInfo struct {
 	Type               string `json:"type,omitempty"`
