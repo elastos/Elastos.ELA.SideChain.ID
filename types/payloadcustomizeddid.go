@@ -19,6 +19,7 @@ const DeactivatedCustomizedDIDVersion = 0x00
 const (
 	Create_Customized_DID_Operation     = "create"
 	Update_Customized_DID_Operation     = "update"
+	Transfer_Customized_DID_Operation   = "transfer"
 	Deactivate_Customized_DID_Operation = "deactivate"
 )
 
@@ -32,6 +33,7 @@ type CustomizedDIDHeaderInfo struct {
 	Specification string `json:"specification"`
 	Operation     string `json:"operation"`
 	PreviousTxid  string `json:"previousTxid,omitempty"`
+	Ticket        string `json:"ticket,omitempty"`
 }
 
 func (d *CustomizedDIDHeaderInfo) Serialize(w io.Writer, version byte) error {
@@ -45,6 +47,11 @@ func (d *CustomizedDIDHeaderInfo) Serialize(w io.Writer, version byte) error {
 	if d.Operation == Update_Customized_DID_Operation {
 		if err := common.WriteVarString(w, d.PreviousTxid); err != nil {
 			return errors.New("[CustomizedDIDHeaderInfo], PreviousTxid serialize failed.")
+		}
+	}
+	if d.Operation == Transfer_Customized_DID_Operation {
+		if err := common.WriteVarString(w, d.Ticket); err != nil {
+			return errors.New("[CustomizedDIDHeaderInfo], Ticket serialize failed")
 		}
 	}
 	return nil
@@ -66,6 +73,58 @@ func (d *CustomizedDIDHeaderInfo) Deserialize(r io.Reader, version byte) error {
 		if err != nil {
 			return errors.New("[CustomizedDIDHeaderInfo], PreviousTxid deserialize failed.")
 		}
+	}
+	if d.Operation == Transfer_Customized_DID_Operation {
+		d.Ticket, err = common.ReadVarString(r)
+		if err != nil {
+			return errors.New("[CustomizedDIDHeaderInfo], Ticket deserialize failed")
+		}
+	}
+	return nil
+}
+
+// Proof of DID transaction payload
+type TransferCustomizedDIDProofInfo struct {
+	Type               string `json:"type,omitempty"`
+	Created            string `json:"created,omitempty"`
+	VerificationMethod string `json:"verificationMethod"`
+	SignatureValue     string `json:"signatureValue"`
+}
+
+func (d *TransferCustomizedDIDProofInfo) Serialize(w io.Writer, version byte) error {
+	if err := common.WriteVarString(w, d.Type); err != nil {
+		return errors.New("[CustomizedDIDProofInfo], Type serialize failed.")
+	}
+
+	if err := common.WriteVarString(w, d.Created); err != nil {
+		return errors.New("[CustomizedDIDProofInfo], Created serialize failed.")
+	}
+	if err := common.WriteVarString(w, d.VerificationMethod); err != nil {
+		return errors.New("[CustomizedDIDProofInfo], VerificationMethod serialize failed.")
+	}
+	if err := common.WriteVarString(w, d.SignatureValue); err != nil {
+		return errors.New("[CustomizedDIDProofInfo], Signature serialize failed.")
+	}
+	return nil
+}
+
+func (d *TransferCustomizedDIDProofInfo) Deserialize(r io.Reader, version byte) error {
+	var err error
+	d.Type, err = common.ReadVarString(r)
+	if err != nil {
+		return errors.New("[CustomizedDIDProofInfo], Type deserialize failed.")
+	}
+	d.Created, err = common.ReadVarString(r)
+	if err != nil {
+		return errors.New("[CustomizedDIDProofInfo], Created deserialize failed.")
+	}
+	d.VerificationMethod, err = common.ReadVarString(r)
+	if err != nil {
+		return errors.New("[CustomizedDIDProofInfo], VerificationMethod deserialize failed.")
+	}
+	d.SignatureValue, err = common.ReadVarString(r)
+	if err != nil {
+		return errors.New("[CustomizedDIDProofInfo], SignatureValue deserialize failed.")
 	}
 	return nil
 }
@@ -225,14 +284,21 @@ func (p *CustomizedDIDVerifiableCredential) GetData() []byte {
 	return data
 }
 
+type CustomIDTicket struct {
+	CustomID      string                         `json:"id"`
+	To            string                         `json:"to"`
+	TransactionID string                         `json:"txid"`
+	Proof         TransferCustomizedDIDProofInfo `json:"proof"`
+}
+
 // payload in DID transaction payload
 type CustomizedDIDPayload struct {
-	CustomID       string             `json:"id"`
-	Controller     interface{}        `json:"controller"`
-	Multisig       string             `json:"multisig"`
-	PublicKey      []DIDPublicKeyInfo `json:"publicKey"`
-	Authentication []interface{}      `json:"authentication"`
-	//Authorization        []interface{}                `json:"authorization"`
+	Ticket               CustomIDTicket         `json:"ticket,omitempty"`
+	CustomID             string                 `json:"id"`
+	Controller           interface{}            `json:"controller"`
+	Multisig             string                 `json:"multisig"`
+	PublicKey            []DIDPublicKeyInfo     `json:"publicKey"`
+	Authentication       []interface{}          `json:"authentication"`
 	VerifiableCredential []VerifiableCredential `json:"verifiableCredential"`
 	Expires              string                 `json:"expires"`
 	Proof                CustomizedDIDProofInfo `json:"proof"`
