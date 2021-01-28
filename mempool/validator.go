@@ -1173,7 +1173,7 @@ func (v *validator) checkDIDVerifiableCredential(receiveDID, issuerID string,
 func (v *validator) checkCustomizedDIDVerifiableCredential(customizedDID string, payload *id.VerifiableCredentialPayload) error {
 	//1, if it is "create" use now m/n and public key otherwise use last time m/n and public key
 	//var verifyDoc *id.CustomizedDIDPayload
-	verifyDoc, multisignStr, err := v.getVerifyDocMultisign(customizedDID)
+	verifyDoc, err := v.getVerifyDocMultisign(customizedDID)
 	if err != nil {
 		return err
 	}
@@ -1181,8 +1181,8 @@ func (v *validator) checkCustomizedDIDVerifiableCredential(customizedDID string,
 	//M,
 	//var N int
 	N := 0
-	if multisignStr != "" {
-		_, N, err = GetMultisignMN(multisignStr)
+	if verifyDoc.Multisig != "" {
+		_, N, err = GetMultisignMN(verifyDoc.Multisig)
 		if err != nil {
 			return err
 		}
@@ -1259,15 +1259,14 @@ func (v *validator) checkVerifiableCredential(txn *types.Transaction, height uin
 }
 
 //	if operation is "create" use now m/n and public key otherwise use last time m/n and public key
-func (v *validator) getVerifyDocMultisign(customizedID string) (*id.CustomizedDIDPayload,
-	string, error) {
+func (v *validator) getVerifyDocMultisign(customizedID string) (*id.CustomizedDIDPayload, error) {
 	buf := new(bytes.Buffer)
 	buf.WriteString(customizedID)
 	transactionData, err := v.Store.GetLastCustomizedDIDTxData(buf.Bytes())
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
-	return transactionData.Operation.Doc, transactionData.Operation.Header.Multisign, nil
+	return transactionData.Operation.Doc, nil
 }
 
 //3, proof multisign verify
@@ -1490,18 +1489,17 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 	//1, if it is "create" use now m/n and public key otherwise use last time m/n and public key
 	//var verifyDoc *id.CustomizedDIDPayload
 	var verifyDoc *id.CustomizedDIDPayload
-	var multisignStr string
 	if customizedDIDPayload.Header.Operation == id.Create_Customized_DID_Operation {
 		verifyDoc = customizedDIDPayload.Doc
-		multisignStr = customizedDIDPayload.Header.Multisign
 	} else {
-		verifyDoc, multisignStr, err = v.getVerifyDocMultisign(customizedDIDPayload.Doc.CustomID)
+		verifyDoc, err = v.getVerifyDocMultisign(customizedDIDPayload.Doc.CustomID)
 		if err != nil {
 			return err
 		}
 	}
 
 	N := 0
+	multisignStr := customizedDIDPayload.Doc.Multisig
 	if multisignStr != "" {
 		_, N, err = GetMultisignMN(multisignStr)
 		if err != nil {
@@ -1628,7 +1626,7 @@ func (v *validator) checkCustomizedDIDDeactivateTX(txn *types.Transaction, heigh
 	}
 
 	N := 0
-	multisignStr := payload.Header.Multisign
+	multisignStr := lastTXData.Operation.Doc.Multisig
 	if multisignStr != "" {
 		_, N, err = GetMultisignMN(multisignStr)
 		if err != nil {

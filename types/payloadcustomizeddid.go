@@ -32,7 +32,6 @@ type CustomizedDIDHeaderInfo struct {
 	Specification string `json:"specification"`
 	Operation     string `json:"operation"`
 	PreviousTxid  string `json:"previousTxid,omitempty"`
-	Multisign     string `json:"multisign"`
 }
 
 func (d *CustomizedDIDHeaderInfo) Serialize(w io.Writer, version byte) error {
@@ -47,9 +46,6 @@ func (d *CustomizedDIDHeaderInfo) Serialize(w io.Writer, version byte) error {
 		if err := common.WriteVarString(w, d.PreviousTxid); err != nil {
 			return errors.New("[CustomizedDIDHeaderInfo], PreviousTxid serialize failed.")
 		}
-	}
-	if err := common.WriteVarString(w, d.Multisign); err != nil {
-		return errors.New("[CustomizedDIDHeaderInfo], Multisign serialize failed.")
 	}
 	return nil
 }
@@ -70,10 +66,6 @@ func (d *CustomizedDIDHeaderInfo) Deserialize(r io.Reader, version byte) error {
 		if err != nil {
 			return errors.New("[CustomizedDIDHeaderInfo], PreviousTxid deserialize failed.")
 		}
-	}
-	d.Multisign, err = common.ReadVarString(r)
-	if err != nil {
-		return errors.New("[CustomizedDIDHeaderInfo], Multisign deserialize failed.")
 	}
 	return nil
 }
@@ -237,6 +229,7 @@ func (p *CustomizedDIDVerifiableCredential) GetData() []byte {
 type CustomizedDIDPayload struct {
 	CustomID       string             `json:"id"`
 	Controller     interface{}        `json:"controller"`
+	Multisig       string             `json:"multisig"`
 	PublicKey      []DIDPublicKeyInfo `json:"publicKey"`
 	Authentication []interface{}      `json:"authentication"`
 	//Authorization        []interface{}                `json:"authorization"`
