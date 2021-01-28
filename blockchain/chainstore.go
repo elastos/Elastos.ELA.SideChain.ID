@@ -357,6 +357,7 @@ func (c *IDChainStore) persistCustomizedDIDTx(batch database.Batch,
 		return err
 	}
 
+	// todo persit tx type(create and transfer)
 	if err := c.persistCustomizedDIDPayload(batch, tx.Hash(), customizedDIDOperation); err != nil {
 		return err
 	}
