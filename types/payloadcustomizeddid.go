@@ -293,7 +293,6 @@ type CustomIDTicket struct {
 
 // payload in DID transaction payload
 type CustomizedDIDPayload struct {
-	Ticket               CustomIDTicket         `json:"ticket,omitempty"`
 	CustomID             string                 `json:"id"`
 	Controller           interface{}            `json:"controller"`
 	Multisig             string                 `json:"multisig"`
@@ -311,7 +310,8 @@ type CustomizedDIDOperation struct {
 	// DIDProofInfo
 	Proof interface{} `json:"proof"`
 
-	Doc *CustomizedDIDPayload
+	Doc    *CustomizedDIDPayload
+	Ticket CustomIDTicket
 }
 
 type CustomizedDIDTranasactionData struct {
@@ -430,6 +430,18 @@ func (p *CustomizedDIDOperation) Deserialize(r io.Reader, version byte) error {
 		return errors.New("[CustomizedDIDOperation], payload unmarshal failed")
 	}
 	p.Doc = payloadInfo
+
+	// get ticket from header.ticket
+	if p.Header.Operation == Transfer_Customized_DID_Operation {
+		tBytes, err := base64url.DecodeString(p.Header.Ticket)
+		if err != nil {
+			return errors.New("[CustomizedDIDOperation], ticket decode failed")
+		}
+		ticket := new(CustomIDTicket)
+		if err := json.Unmarshal(tBytes, ticket); err != nil {
+			return errors.New("[CustomizedDIDOperation], ticket unmarshal failed")
+		}
+	}
 	return nil
 }
 
