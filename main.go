@@ -90,7 +90,7 @@ func main() {
 		ChainParams:    spvNetParams,
 		PermanentPeers: cfg.SPVPermanentPeers,
 		GenesisAddress: genesisAddress,
-		FilterType:     filter.FTNexTTurnDPOSInfo,
+		FilterType:     filter.FTCustomID,
 		NodeVersion:    nodePrefix + Version,
 	}
 	spvService, err := spv.NewService(&spvCfg)
