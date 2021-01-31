@@ -300,7 +300,7 @@ type CustomizedDIDPayload struct {
 	Authentication       []interface{}          `json:"authentication"`
 	VerifiableCredential []VerifiableCredential `json:"verifiableCredential"`
 	Expires              string                 `json:"expires"`
-	Proof                CustomizedDIDProofInfo `json:"proof"`
+	Proof                interface{}            `json:"proof"`
 }
 
 // payload of DID transaction
@@ -308,10 +308,10 @@ type CustomizedDIDOperation struct {
 	Header  CustomizedDIDHeaderInfo `json:"header"`
 	Payload string                  `json:"payload"`
 	// DIDProofInfo
-	Proof interface{} `json:"proof"`
+	Proof DIDProofInfo `json:"proof"`
 
 	Doc    *CustomizedDIDPayload
-	Ticket CustomIDTicket
+	Ticket *CustomIDTicket
 }
 
 type CustomizedDIDTranasactionData struct {
@@ -360,26 +360,10 @@ func (p *CustomizedDIDOperation) Serialize(w io.Writer, version byte) error {
 	if err := common.WriteVarString(w, p.Payload); err != nil {
 		return errors.New("[CustomizedDIDOperation], Payload serialize failed")
 	}
-	//serialize DIDProofArray []*id.DIDProofInfo
-	if DIDProofArray, ok := p.Proof.([]*DIDProofInfo); ok == true {
-		if err := common.WriteVarUint(w, uint64(len(DIDProofArray))); err != nil {
-			return errors.New("DIDProofArray length serialization failed.")
-		}
-		for _, CustomizedDIDProof := range DIDProofArray {
-			if err := CustomizedDIDProof.Serialize(w, CustomizedDIDVersion); err != nil {
-				return err
-			}
-		}
-	} else if CustomizedDIDProof, ok := p.Proof.(*DIDProofInfo); ok == true {
-		if err := common.WriteVarUint(w, uint64(1)); err != nil {
-			return errors.New("DIDProofArray 1 serialization failed.")
-		}
-		//serialize CustomizedDIDProof
-		CustomizedDIDProof.Serialize(w, CustomizedDIDVersion)
-	} else {
-		//error
-		return errors.New("Invalid Proof type")
 
+	//serialize CustomizedDIDProof
+	if err := p.Proof.Serialize(w, CustomizedDIDVersion); err != nil {
+		return errors.New("[CustomizedDIDOperation], Proof serialize failed")
 	}
 
 	return nil
@@ -392,32 +376,12 @@ func (p *CustomizedDIDOperation) Deserialize(r io.Reader, version byte) error {
 
 	payload, err := common.ReadVarString(r)
 	if err != nil {
-		return errors.New("[DIDInfo], payload deserialize failed")
+		return errors.New("[CustomizedDIDOperation], payload deserialize failed")
 	}
 	p.Payload = payload
 
-	count, err := common.ReadVarUint(r, 0)
-	if err != nil {
-		return err
-	}
-	if count > 1 {
-		var didProofInfoArray []DIDProofInfo
-		for i := uint64(0); i < count; i++ {
-			var didProofInfo DIDProofInfo
-			if err := didProofInfo.Deserialize(r, version); err != nil {
-				return err
-			}
-			didProofInfoArray = append(didProofInfoArray, didProofInfo)
-			p.Proof = &didProofInfoArray
-		}
-	} else if count == 1 {
-		var didProofInfo DIDProofInfo
-		if err := didProofInfo.Deserialize(r, version); err != nil {
-			return err
-		}
-		p.Proof = &didProofInfo
-	} else {
-		errors.New("[CustomizedDIDOperation], Proof count invalid")
+	if err := p.Proof.Deserialize(r, version); err != nil {
+		return errors.New("[CustomizedDIDOperation], Proof deserialize failed")
 	}
 
 	// get DIDPayloadInfo from payload data
@@ -441,6 +405,7 @@ func (p *CustomizedDIDOperation) Deserialize(r io.Reader, version byte) error {
 		if err := json.Unmarshal(tBytes, ticket); err != nil {
 			return errors.New("[CustomizedDIDOperation], ticket unmarshal failed")
 		}
+		p.Ticket = ticket
 	}
 	return nil
 }

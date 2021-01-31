@@ -515,6 +515,60 @@ func (v *validator) checkVerificationMethodV1(VerificationMethod string,
 	return errors.New("[ID checkVerificationMethodV1] wrong public key by VerificationMethod ")
 }
 
+//DIDProofInfo VerificationMethod must be in DIDPayloadInfo Authentication or
+//is did publickKey
+func (v *validator) checkCustomIDVerificationMethod(VerificationMethod string,
+	payloadInfo *id.CustomizedDIDPayload) error {
+	proofUriSegment := getUriSegment(VerificationMethod)
+
+	masterPubKeyVerifyOk := false
+	for i := 0; i < len(payloadInfo.PublicKey); i++ {
+		if proofUriSegment == getUriSegment(payloadInfo.PublicKey[i].ID) {
+			pubKeyByte := base58.Decode(payloadInfo.PublicKey[i].PublicKeyBase58)
+			//get did address
+			didAddress, err := getDIDAddress(pubKeyByte)
+			if err != nil {
+				return err
+			}
+			//didAddress must equal address in DID
+			if didAddress != v.Store.GetDIDFromUri(payloadInfo.CustomID) {
+				return errors.New("[ID checkVerificationMethodV1] ID and PublicKeyBase58 not match ")
+			}
+			masterPubKeyVerifyOk = true
+			break
+		}
+	}
+
+	for _, auth := range payloadInfo.Authentication {
+		switch auth.(type) {
+		case string:
+			keyString := auth.(string)
+			if proofUriSegment == getUriSegment(keyString) {
+				return nil
+			}
+		case map[string]interface{}:
+			data, err := json.Marshal(auth)
+			if err != nil {
+				return err
+			}
+			didPublicKeyInfo := new(id.DIDPublicKeyInfo)
+			err = json.Unmarshal(data, didPublicKeyInfo)
+			if err != nil {
+				return err
+			}
+			if proofUriSegment == getUriSegment(didPublicKeyInfo.ID) {
+				return nil
+			}
+		default:
+			return errors.New("[ID checkVerificationMethodV1] invalid  auth.(type)")
+		}
+	}
+	if masterPubKeyVerifyOk {
+		return nil
+	}
+	return errors.New("[ID checkVerificationMethodV1] wrong public key by VerificationMethod ")
+}
+
 func (v *validator) GetLastCustomizedDIDTxData(customizedDID string) (*id.CustomizedDIDTranasactionData, error) {
 	buf := new(bytes.Buffer)
 	buf.WriteString(customizedDID)
@@ -1483,6 +1537,12 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 		return err
 	}
 
+	// check payload.proof
+	if err := v.checkCustomIDVerificationMethod(customizedDIDPayload.Proof.VerificationMethod,
+		customizedDIDPayload.Doc); err != nil {
+		return err
+	}
+
 	//todo This custoized did and register did are mutually exclusive
 	//todo check expires
 
@@ -1511,7 +1571,7 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 	//2,DIDProofInfo VerificationMethod must be in CustomizedDIDPayload Authentication or
 	//is come from controller
 
-	DIDProofArray, err := v.checkCustomizedDIDAllVerificationMethod(customizedDIDPayload.Doc, customizedDIDPayload.Proof)
+	DIDProofArray, err := v.checkCustomizedDIDAllVerificationMethod(customizedDIDPayload.Doc, customizedDIDPayload.Doc.Proof)
 	if err != nil {
 		return err
 	}
@@ -1560,6 +1620,7 @@ func (v *validator) checkRegisterDID(txn *types.Transaction, height uint32, main
 			doc.PayloadInfo); err != nil {
 			return err
 		}
+
 	}
 
 	//get  public key
