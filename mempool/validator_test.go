@@ -437,7 +437,7 @@ func getCustomizedDIDPayloadInfo(id string, didOperation string, docBytes []byte
 			Operation:     didOperation,
 		},
 		Payload: base64url.EncodeToString(docBytes),
-		Proof: &types.DIDProofInfo{
+		Proof: types.DIDProofInfo{
 			Type:               "ECDSAsecp256r1",
 			VerificationMethod: "did:elastos:" + id + "#primary",
 		},
@@ -445,7 +445,7 @@ func getCustomizedDIDPayloadInfo(id string, didOperation string, docBytes []byte
 	}
 	privateKey1 := base58.Decode(privateKeyStr)
 	sign, _ := crypto.Sign(privateKey1, p.GetData())
-	p.Proof.(*types.DIDProofInfo).Signature = base64url.EncodeToString(sign)
+	p.Proof.Signature = base64url.EncodeToString(sign)
 	return p
 }
 
@@ -482,7 +482,7 @@ func getCustomizedDIDPayloadInfoMultiSign(id1, id2 string, didOperation string, 
 	proof2.Signature = base64url.EncodeToString(sign2)
 	Proofs = append(Proofs, proof2)
 
-	p.Proof = Proofs
+	p.Doc.Proof = Proofs
 	return p
 }
 
