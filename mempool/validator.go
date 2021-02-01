@@ -341,25 +341,24 @@ func (v *validator) getPublicKeyByVerificationMethod(VerificationMethod, ID stri
 	return "", errors.New(" wrong public key by VerificationMethod ")
 }
 
-func (v *validator) checkCustomizedDIDAllVerificationMethod(doc *id.CustomizedDIDPayload, Proof interface{}) ([]*id.DIDProofInfo,
+func (v *validator) checkCustomizedDIDAllVerificationMethod(verifyDoc *id.CustomizedDIDPayload, Proof interface{}) ([]*id.DIDProofInfo,
 	error) {
 	//2,DIDProofInfo VerificationMethod must be in CustomizedDIDPayload Authentication or
 	//is come from controller
-	//doc := payload.Doc
 	var DIDProofArray []*id.DIDProofInfo
 	var CustomizedDIDProof *id.DIDProofInfo
 	var bExist bool
 	bDIDProofArray := false
 	if DIDProofArray, bDIDProofArray = Proof.([]*id.DIDProofInfo); bDIDProofArray == true {
 		for _, CustomizedDIDProof = range DIDProofArray {
-			if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.VerificationMethod, doc.CustomID,
-				doc.PublicKey, doc.Authentication, doc.Controller); err != nil {
+			if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.VerificationMethod, verifyDoc.CustomID,
+				verifyDoc.PublicKey, verifyDoc.Authentication, verifyDoc.Controller); err != nil {
 				return nil, err
 			}
 		}
 	} else if CustomizedDIDProof, bExist = Proof.(*id.DIDProofInfo); bExist == true {
-		if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.VerificationMethod, doc.CustomID,
-			doc.PublicKey, doc.Authentication, doc.Controller); err != nil {
+		if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.VerificationMethod, verifyDoc.CustomID,
+			verifyDoc.PublicKey, verifyDoc.Authentication, verifyDoc.Controller); err != nil {
 			return nil, err
 		}
 	} else {
@@ -1384,34 +1383,70 @@ func (v *validator) checkCustomIDInnerProof(DIDProofArray []*id.DIDProofInfo, iD
 }
 
 func (v *validator) checkCustomizedDIDAvailable(cPayload *id.CustomizedDIDOperation) error {
-	reservedCustomIDs, _ := v.spvService.GetReservedCustomIDs()
-	receivedCustomIDs, _ := v.spvService.GetReceivedCustomIDs()
+	reservedCustomIDs, err := v.spvService.GetReservedCustomIDs()
+	if err != nil {
+		return err
+	}
+	receivedCustomIDs, err := v.spvService.GetReceivedCustomIDs()
+	if err != nil {
+		return err
+	}
 
-	for rsCustomID, _ := range reservedCustomIDs {
-		if rsCustomID == cPayload.Doc.CustomID {
-			// id count of controller need to be one
-			if getControllerLength(cPayload.Doc.Controller) != 1 {
-				return errors.New("invalid id count in controller")
+	if _, ok := reservedCustomIDs[cPayload.Doc.CustomID]; ok {
+		if customDID, ok := receivedCustomIDs[cPayload.Doc.CustomID]; ok {
+			rcDID, err := customDID.ToAddress()
+			if err != nil {
+				return errors.New("invalid customDID in db")
 			}
-			//
-			for rcCustomID, customDID := range receivedCustomIDs {
-				if rcCustomID == cPayload.Doc.CustomID {
-					did, ok := cPayload.Doc.Controller.(string)
-					if !ok {
-						return errors.New("invalid controller")
+			if did, ok := cPayload.Doc.Controller.(string); ok {
+				if !strings.Contains(did, rcDID) {
+					return errors.New("invalid controller did")
+				}
+			} else {
+				// customID need be one of the controller.
+				var controllerCount int
+				if dids, ok := cPayload.Doc.Controller.([]string); ok {
+					for _, did := range dids {
+						if strings.Contains(did, rcDID) {
+							controllerCount++
+						}
 					}
-					rcDID, err := customDID.ToAddress()
-					if err != nil {
-						return errors.New("invalid customDID in db")
+				} else {
+					return errors.New("invalid controller")
+				}
+				if controllerCount != 1 {
+					return errors.New("not in controller")
+				}
+				// customID need be one oof the signature
+				if proofs, ok := cPayload.Doc.Proof.([]*id.DIDProofInfo); ok {
+					var invalidProofCount int
+					for _, proof := range proofs {
+						if strings.Contains(proof.VerificationMethod, rcDID) {
+							invalidProofCount++
+						}
 					}
-					if !strings.Contains(did, rcDID) {
-						return errors.New("invalid controller did")
+					if invalidProofCount == 0 {
+						return errors.New("there is no signature of custom ID")
+					} else if invalidProofCount > 1 {
+						return errors.New("there is duplicated signature of custom ID")
 					}
+				} else if proof, ok := cPayload.Doc.Proof.(*id.DIDProofInfo); ok {
+					if !strings.Contains(proof.VerificationMethod, rcDID) {
+						return errors.New("there is no signature of custom ID")
+					}
+				} else {
+					//error
+					return errors.New("invalid Proof type")
 				}
 			}
 		}
 	}
 
+	return nil
+}
+
+func (v *validator) checkTicketAvailable(cPayload *id.CustomizedDIDOperation) error {
+	// todo 'to' need in controller and have signature
 	return nil
 }
 
@@ -1557,21 +1592,6 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 		return err
 	}
 
-	// check payload.proof
-	doc := customizedDIDPayload.Doc
-	if err := v.checkCustomizedDIDVerificationMethod(
-		customizedDIDPayload.Proof.VerificationMethod, doc.CustomID,
-		doc.PublicKey, doc.Authentication, doc.Controller); err != nil {
-		return err
-	}
-
-	if err := v.checkCustomIDOuterProof(customizedDIDPayload); err != nil {
-		return err
-	}
-
-	//todo This custoized did and register did are mutually exclusive
-	//todo check expires
-
 	//1, if it is "create" use now m/n and public key otherwise use last time m/n and public key
 	//var verifyDoc *id.CustomizedDIDPayload
 	var verifyDoc *id.CustomizedDIDPayload
@@ -1584,8 +1604,26 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 		}
 	}
 
+	// check payload.proof
+	if err := v.checkCustomizedDIDVerificationMethod(
+		customizedDIDPayload.Proof.VerificationMethod, verifyDoc.CustomID,
+		verifyDoc.PublicKey, verifyDoc.Authentication, verifyDoc.Controller); err != nil {
+		return err
+	}
+
+	if err := v.checkCustomIDOuterProof(customizedDIDPayload, verifyDoc); err != nil {
+		return err
+	}
+
+	//todo This custoized did and register did are mutually exclusive
+	//todo check expires
+
+	// todo check ticket when operation is 'Transfer'
+	if err := v.checkTicketAvailable(customizedDIDPayload); err != nil {
+		return err
+	}
 	N := 0
-	multisignStr := customizedDIDPayload.Doc.Multisig
+	multisignStr := verifyDoc.Multisig
 	if multisignStr != "" {
 		_, N, err = GetMultisignMN(multisignStr)
 		if err != nil {
@@ -1596,7 +1634,7 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 	//2,DIDProofInfo VerificationMethod must be in CustomizedDIDPayload Authentication or
 	//is come from controller
 
-	DIDProofArray, err := v.checkCustomizedDIDAllVerificationMethod(customizedDIDPayload.Doc, customizedDIDPayload.Doc.Proof)
+	DIDProofArray, err := v.checkCustomizedDIDAllVerificationMethod(verifyDoc, customizedDIDPayload.Doc.Proof)
 	if err != nil {
 		return err
 	}
@@ -1607,18 +1645,19 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 		return err
 	}
 	//4, Verifiable credential
-	if err = v.checkVeriﬁableCredential(doc.CustomID, doc.VerifiableCredential,
-		doc.Authentication, doc.PublicKey); err != nil {
+	if err = v.checkVeriﬁableCredential(
+		customizedDIDPayload.Doc.CustomID, customizedDIDPayload.Doc.VerifiableCredential,
+		verifyDoc.Authentication, verifyDoc.PublicKey); err != nil {
 		return err
 	}
 	return nil
 
 }
 
-func (v *validator) checkCustomIDOuterProof(txPayload *id.CustomizedDIDOperation) error {
+func (v *validator) checkCustomIDOuterProof(txPayload *id.CustomizedDIDOperation, verifyDoc *id.CustomizedDIDPayload) error {
 	//get  public key
 	publicKeyBase58 := getPublicKey(txPayload.Proof.VerificationMethod,
-		txPayload.Doc.Authentication, txPayload.Doc.PublicKey)
+		verifyDoc.Authentication, verifyDoc.PublicKey)
 	if publicKeyBase58 == "" {
 		return errors.New("not find proper publicKeyBase58")
 	}
