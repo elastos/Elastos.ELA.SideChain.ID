@@ -986,5 +986,4 @@ func (s *txValidatorTestSuite) TestHeaderPayloadDIDTX() {
 	err2 := s.validator.checkRegisterDID(txn, 0, 0)
 	s.NoError(err2)
 	fmt.Println("TestHeaderPayloadDIDTX end")
-
 }
