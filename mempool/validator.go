@@ -377,18 +377,35 @@ func (v *validator) checkCustomizedDIDAllVerificationMethod(doc *id.CustomizedDI
 //is  controller primary key
 //txPrefixDID is customized ID
 func (v *validator) checkCustomizedDIDVerificationMethod(VerificationMethod, txPrefixDID string,
-	PublicKey []id.DIDPublicKeyInfo, Authentication []interface{}, Controller interface{}) error {
+	publicKey []id.DIDPublicKeyInfo, Authentication []interface{}, Controller interface{}) error {
 	prefixDid, compactSymbol := GetDIDAndCompactSymbolFromUri(VerificationMethod)
 
 	//1, check is proofUriSegment public key in Authentication. if it is in then check done
 	if prefixDid == "" || prefixDid == txPrefixDID {
+		var pubkeyCount int
+		for i := 0; i < len(publicKey); i++ {
+			if compactSymbol == getUriSegment(publicKey[i].ID) {
+				pubKeyByte := base58.Decode(publicKey[i].PublicKeyBase58)
+				//get did address
+				didAddress, err := getDIDAddress(pubKeyByte)
+				if err != nil {
+					return err
+				}
+				//didAddress must equal address in DID
+				if didAddress != v.Store.GetDIDFromUri(txPrefixDID) {
+					return errors.New("[ID checkVerificationMethodV1] ID and PublicKeyBase58 not match ")
+				}
+				pubkeyCount++
+				break
+			}
+		}
 		//proofUriSegment---PublicKeyBase58 is in Authentication
 		for _, auth := range Authentication {
 			switch auth.(type) {
 			case string:
 				keyString := auth.(string)
 				if compactSymbol == getUriSegment(keyString) {
-					return nil
+					pubkeyCount++
 				}
 			case map[string]interface{}:
 				data, err := json.Marshal(auth)
@@ -401,11 +418,14 @@ func (v *validator) checkCustomizedDIDVerificationMethod(VerificationMethod, txP
 					return err
 				}
 				if compactSymbol == getUriSegment(didPublicKeyInfo.ID) {
-					return nil
+					pubkeyCount++
 				}
 			default:
 				return errors.New("[txPrefixDID checkCustomizedDIDVerificationMethod] invalid  auth.(type)")
 			}
+		}
+		if pubkeyCount == 1 {
+			return nil
 		}
 	} else {
 		//2, check is proofUriSegment public key come from controller
@@ -521,7 +541,7 @@ func (v *validator) checkCustomIDVerificationMethod(VerificationMethod string,
 	payloadInfo *id.CustomizedDIDPayload) error {
 	proofUriSegment := getUriSegment(VerificationMethod)
 
-	masterPubKeyVerifyOk := false
+	var pubkeyCount int
 	for i := 0; i < len(payloadInfo.PublicKey); i++ {
 		if proofUriSegment == getUriSegment(payloadInfo.PublicKey[i].ID) {
 			pubKeyByte := base58.Decode(payloadInfo.PublicKey[i].PublicKeyBase58)
@@ -534,7 +554,7 @@ func (v *validator) checkCustomIDVerificationMethod(VerificationMethod string,
 			if didAddress != v.Store.GetDIDFromUri(payloadInfo.CustomID) {
 				return errors.New("[ID checkVerificationMethodV1] ID and PublicKeyBase58 not match ")
 			}
-			masterPubKeyVerifyOk = true
+			pubkeyCount++
 			break
 		}
 	}
@@ -544,7 +564,7 @@ func (v *validator) checkCustomIDVerificationMethod(VerificationMethod string,
 		case string:
 			keyString := auth.(string)
 			if proofUriSegment == getUriSegment(keyString) {
-				return nil
+				pubkeyCount++
 			}
 		case map[string]interface{}:
 			data, err := json.Marshal(auth)
@@ -557,13 +577,13 @@ func (v *validator) checkCustomIDVerificationMethod(VerificationMethod string,
 				return err
 			}
 			if proofUriSegment == getUriSegment(didPublicKeyInfo.ID) {
-				return nil
+				pubkeyCount++
 			}
 		default:
 			return errors.New("[ID checkVerificationMethodV1] invalid  auth.(type)")
 		}
 	}
-	if masterPubKeyVerifyOk {
+	if pubkeyCount == 1 {
 		return nil
 	}
 	return errors.New("[ID checkVerificationMethodV1] wrong public key by VerificationMethod ")
@@ -1252,7 +1272,7 @@ func (v *validator) checkCustomizedDIDVerifiableCredential(customizedDID string,
 	}
 
 	//3, proof multisign verify
-	err = v.checkCustomizedDIDProof(DIDProofArray, payload, N, verifyDoc)
+	err = v.checkCustomIDInnerProof(DIDProofArray, payload, N, verifyDoc)
 	if err != nil {
 		return err
 	}
@@ -1324,7 +1344,7 @@ func (v *validator) getVerifyDocMultisign(customizedID string) (*id.CustomizedDI
 }
 
 //3, proof multisign verify
-func (v *validator) checkCustomizedDIDProof(DIDProofArray []*id.DIDProofInfo, iDateContainer interfaces.IDataContainer,
+func (v *validator) checkCustomIDInnerProof(DIDProofArray []*id.DIDProofInfo, iDateContainer interfaces.IDataContainer,
 	N int, verifyDoc *id.CustomizedDIDPayload) error {
 	verifyOkCount := 0
 	//3, proof multisign verify
@@ -1538,8 +1558,14 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 	}
 
 	// check payload.proof
-	if err := v.checkCustomIDVerificationMethod(customizedDIDPayload.Proof.VerificationMethod,
-		customizedDIDPayload.Doc); err != nil {
+	doc := customizedDIDPayload.Doc
+	if err := v.checkCustomizedDIDVerificationMethod(
+		customizedDIDPayload.Proof.VerificationMethod, doc.CustomID,
+		doc.PublicKey, doc.Authentication, doc.Controller); err != nil {
+		return err
+	}
+
+	if err := v.checkCustomIDOuterProof(customizedDIDPayload); err != nil {
 		return err
 	}
 
@@ -1566,7 +1592,6 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 			return err
 		}
 	}
-	doc := customizedDIDPayload.Doc
 
 	//2,DIDProofInfo VerificationMethod must be in CustomizedDIDPayload Authentication or
 	//is come from controller
@@ -1577,7 +1602,7 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 	}
 
 	//3, proof multisign verify
-	err = v.checkCustomizedDIDProof(DIDProofArray, customizedDIDPayload, N, verifyDoc)
+	err = v.checkCustomIDInnerProof(DIDProofArray, customizedDIDPayload, N, verifyDoc)
 	if err != nil {
 		return err
 	}
@@ -1588,6 +1613,35 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 	}
 	return nil
 
+}
+
+func (v *validator) checkCustomIDOuterProof(txPayload *id.CustomizedDIDOperation) error {
+	//get  public key
+	publicKeyBase58 := getPublicKey(txPayload.Proof.VerificationMethod,
+		txPayload.Doc.Authentication, txPayload.Doc.PublicKey)
+	if publicKeyBase58 == "" {
+		return errors.New("not find proper publicKeyBase58")
+	}
+	//get code
+	//var publicKeyByte []byte
+	publicKeyByte := base58.Decode(publicKeyBase58)
+
+	//var code []byte
+	code, err := getCodeByPubKey(publicKeyByte)
+	if err != nil {
+		return err
+	}
+	signature, _ := base64url.DecodeString(txPayload.Proof.Signature)
+
+	var success bool
+	success, err = v.VerifyByVM(txPayload, code, signature)
+	if err != nil {
+		return err
+	}
+	if !success {
+		return errors.New("checkCustomIDProof[VM] Check Sig FALSE")
+	}
+	return nil
 }
 
 func (v *validator) checkRegisterDID(txn *types.Transaction, height uint32, mainChainHeight uint32) error {
@@ -1620,8 +1674,8 @@ func (v *validator) checkRegisterDID(txn *types.Transaction, height uint32, main
 			doc.PayloadInfo); err != nil {
 			return err
 		}
-
 	}
+	// todo checkVerificationMethodV2 use pubkeyCount++
 
 	//get  public key
 	publicKeyBase58 := getPublicKey(doc.Proof.VerificationMethod,
@@ -1703,7 +1757,7 @@ func (v *validator) checkCustomizedDIDDeactivateTX(txn *types.Transaction, heigh
 	}
 
 	//3, proof multisign verify
-	err = v.checkCustomizedDIDProof(DIDProofArray, payload, N, lastTXData.Operation.Doc)
+	err = v.checkCustomIDInnerProof(DIDProofArray, payload, N, lastTXData.Operation.Doc)
 	if err != nil {
 		return err
 	}
