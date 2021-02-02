@@ -291,16 +291,36 @@ type CustomIDTicket struct {
 	Proof         TransferCustomizedDIDProofInfo `json:"proof"`
 }
 
+type CustomizedDIDPayloadData struct {
+	CustomID             string                 `json:"id"`
+	Controller           interface{}            `json:"controller,omitempty"`
+	Multisig             string                 `json:"multisig,omitempty"`
+	PublicKey            []DIDPublicKeyInfo     `json:"publicKey,omitempty"`
+	Authentication       []interface{}          `json:"authentication,omitempty"`
+	VerifiableCredential []VerifiableCredential `json:"verifiableCredential,omitempty"`
+	Expires              string                 `json:"expires"`
+}
+
+func (c *CustomizedDIDPayloadData) GetData() []byte {
+	data, err := didjson.Marshal(c)
+	if err != nil {
+		return nil
+	}
+	return data
+}
+
 // payload in DID transaction payload
 type CustomizedDIDPayload struct {
-	CustomID             string                 `json:"id"`
-	Controller           interface{}            `json:"controller"`
-	Multisig             string                 `json:"multisig"`
-	PublicKey            []DIDPublicKeyInfo     `json:"publicKey"`
-	Authentication       []interface{}          `json:"authentication"`
-	VerifiableCredential []VerifiableCredential `json:"verifiableCredential"`
-	Expires              string                 `json:"expires"`
-	Proof                interface{}            `json:"proof"`
+	*CustomizedDIDPayloadData
+	Proof interface{} `json:"proof,omitempty"`
+}
+
+func (c *CustomizedDIDPayload) GetData() []byte {
+	data, err := didjson.Marshal(c)
+	if err != nil {
+		return nil
+	}
+	return data
 }
 
 // payload of DID transaction
