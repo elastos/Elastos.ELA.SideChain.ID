@@ -91,7 +91,16 @@ type TransferDIDProofInfo struct {
 
 // Proof of DID transaction payload
 type DIDProofInfo struct {
+	Type string `json:"type,omitempty"`
+	//Created            string `json:"created"`
+	VerificationMethod string `json:"verificationMethod"`
+	Signature          string `json:"signature"`
+}
+
+// Proof of DID transaction payload
+type InnerDIDProofInfo struct {
 	Type               string `json:"type,omitempty"`
+	Created            string `json:"created"`
 	VerificationMethod string `json:"verificationMethod"`
 	Signature          string `json:"signature"`
 }
@@ -230,14 +239,14 @@ func (p *VerifiableCredentialData) CompleteCompact(did string) {
 }
 
 type VerifiableCredentialDoc struct {
-	*VerifiableCredential `json:"verifiableCredential"`
+	*VerifiableCredential `json:"verifiableCredential,omitempty"`
 }
 type VerifiableCredential struct {
 	*VerifiableCredentialData
-	Proof DIDProofInfo `json:"Proof,omitempty"`
+	Proof InnerDIDProofInfo `json:"proof,omitempty"`
 }
 
-func (p *VerifiableCredential) GetDIDProofInfo() *DIDProofInfo {
+func (p *VerifiableCredential) GetDIDProofInfo() *InnerDIDProofInfo {
 	return &p.Proof
 }
 
