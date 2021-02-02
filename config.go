@@ -77,6 +77,7 @@ type configParams struct {
 	RewardMinerOnlyStartHeight  uint32
 	VeriﬁableCredentialHeight   uint32
 	CheckRegisterDIDHeight      uint32
+	CustomIDFeeRate             common.Fixed64
 }
 
 // loadConfigFile read configuration parameters through the config.json file.
@@ -163,7 +164,10 @@ func loadConfig() *configParams {
 		params.InstantBlock(activeNetParams)
 	}
 	if cfg.VeriﬁableCredentialHeight > 0 {
-		didParams.VeriﬁableCredentialHeight = cfg.VeriﬁableCredentialHeight
+		didParams.VerifiableCredentialHeight = cfg.VeriﬁableCredentialHeight
+	}
+	if cfg.CustomIDFeeRate > 0 {
+		didParams.CustomIDFeeRate = cfg.CustomIDFeeRate
 	}
 	if cfg.CheckRegisterDIDHeight > 0 {
 		didParams.CheckRegisterDIDHeight = cfg.CheckRegisterDIDHeight

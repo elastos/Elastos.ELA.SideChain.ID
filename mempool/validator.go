@@ -1627,7 +1627,7 @@ func (v *validator) getCustomizedDIDTxFee(customizedDIDPayload *id.CustomizedDID
 	customizedDIDPayload.Serialize(buf, id.CustomizedDIDVersion)
 	E := common.Fixed64(buf.Len())
 	//F factor got from cr proposal
-	F := common.Fixed64(1)
+	F := v.didParam.CustomIDFeeRate
 	feeRate, err := v.spvService.GetRateOfCustomIDFee()
 	if err == nil {
 		F = feeRate
@@ -1780,8 +1780,7 @@ func (v *validator) checkRegisterDID(txn *types.Transaction, height uint32, main
 		doc.PayloadInfo.ID); err != nil {
 		return err
 	}
-	localCurrentHeight := v.Store.GetHeight()
-	if localCurrentHeight < v.didParam.CheckRegisterDIDHeight {
+	if height < v.didParam.CheckRegisterDIDHeight {
 		if err := v.checkVerificationMethodV0(&doc.Proof,
 			doc.PayloadInfo); err != nil {
 			return err
@@ -1819,7 +1818,7 @@ func (v *validator) checkRegisterDID(txn *types.Transaction, height uint32, main
 	if !success {
 		return errors.New("checkRegisterDID [VM]  Check Sig FALSE")
 	}
-	if localCurrentHeight >= v.didParam.VeriﬁableCredentialHeight {
+	if height >= v.didParam.VerifiableCredentialHeight {
 		payloadInfo := doc.PayloadInfo
 		if err = v.checkVeriﬁableCredential(payloadInfo.ID, payloadInfo.VerifiableCredential,
 			payloadInfo.Authentication, payloadInfo.PublicKey, nil); err != nil {
