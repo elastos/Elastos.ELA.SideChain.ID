@@ -49,8 +49,9 @@ func (s *txValidatorTestSuite) SetupSuite() {
 		ChainParams: &config.Params{},
 	}
 	didParams := params.DIDParams{
-		CheckRegisterDIDHeight:    0,
-		VeriﬁableCredentialHeight: 0,
+		CheckRegisterDIDHeight:     0,
+		VerifiableCredentialHeight: 0,
+		CustomIDFeeRate:            1,
 	}
 	chainCfg := blockchain.Config{
 		ChainParams: &config.Params{
