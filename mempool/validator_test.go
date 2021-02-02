@@ -118,10 +118,16 @@ const (
 )
 
 var (
-	id1DocByts                                 []byte
-	id2DocByts                                 []byte
-	id3DocByts                                 []byte
-	customizedDIDDocBytes1                     []byte
+	id1DocByts     []byte
+	id11DocByts    []byte
+	idUser1DocByts []byte
+	idUser2DocByts []byte
+
+	id2DocByts              []byte
+	id3DocByts              []byte
+	customizedDIDDocBytes1  []byte
+	customizedDIDDocBytes11 []byte
+
 	customizedDIDDocBytes2                     []byte
 	customizedVerifableCredDocBytes            []byte
 	customizedVerifableCredControllersDocBytes []byte
@@ -132,15 +138,21 @@ var (
 
 func init() {
 	id1DocByts, _ = types.LoadJsonData("./testdata/document.compact.json")
+	id11DocByts, _ = types.LoadJsonData("./testdata/issuer.id.json")
+	idUser1DocByts, _ = types.LoadJsonData("./testdata/user1.id.json")
+	idUser2DocByts, _ = types.LoadJsonData("./testdata/user2.id.json")
+
 	id2DocByts, _ = types.LoadJsonData("./testdata/issuer.compact.json")
 	id3DocByts, _ = types.LoadJsonData("./testdata/issuer.json")
 	customizedDIDDocBytes1, _ = types.LoadJsonData("./testdata/customized_did_single_sign.json")
-	customizedDIDDocBytes2, _ = types.LoadJsonData("./testdata/customized_did_multi_sign.json")
+	customizedDIDDocBytes11, _ = types.LoadJsonData("./testdata/examplecorp.id.json") //
+
+	customizedDIDDocBytes2, _ = types.LoadJsonData("./testdata/foo.id.json")
 	customizedVerifableCredDocBytes, _ = types.LoadJsonData("./testdata/customized_did_verifiable_credential.json")
 	DIDVerifableCredDocBytes, _ = types.LoadJsonData("./testdata/did_verifiable_credential.json")
 	customizedVerifableCredControllersDocBytes, _ = types.LoadJsonData("./testdata/customized_did_verifiable_credential_controllers.json")
 
-	fmt.Println("customizedVerifableCredControllersDocBytes", string(customizedVerifableCredControllersDocBytes))
+	//fmt.Println("customizedVerifableCredControllersDocBytes", string(customizedVerifableCredControllersDocBytes))
 	id3DocByts, _ = types.LoadJsonData("./testdata/issuer.json")
 	id3DocByts, _ = types.LoadJsonData("./testdata/issuer.json")
 	headerPayloadByts, _ = types.LoadJsonData("./testdata/customized_did_multi_controllers.json")
@@ -415,7 +427,7 @@ func getPayloadDIDInfo(id string, didOperation string, docBytes []byte, privateK
 		Payload: base64url.EncodeToString(docBytes),
 		Proof: types.DIDProofInfo{
 			Type:               "ECDSAsecp256r1",
-			VerificationMethod: "did:elastos:" + id + "#primary",
+			VerificationMethod: "did:elastos:" + id + "#primary", //primary
 		},
 		PayloadInfo: info,
 	}
@@ -708,51 +720,70 @@ func (s *txValidatorTestSuite) TestCheckRegisterDID() {
 }
 
 func (s *txValidatorTestSuite) TestCustomizedDID() {
-	//id1 := "iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"
-	//privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
-	//
-	//tx1 := getDIDTx(id1, "create", id1DocByts, privateKey1Str)
-	//batch := s.validator.Store.NewBatch()
-	//err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"), tx1,
-	//	100, 123456)
-	//s.NoError(err1)
-	//batch.Commit()
-	//tx3 := getCustomizedDIDTx(id1, "create", customizedDIDDocBytes1, privateKey1Str)
-	//err3 := s.validator.checkCustomizedDID(tx3, 0, 0)
-	//s.NoError(err3)
+	id1 := "imUUPBfrZ1yZx6nWXe6LNN59VeX2E6PPKj"
+	//todo
+	//"9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
+	//413uivqLEMjPd8bo42K9ic6VXpgYcJLEwB3vefxJDhXJ
+	//privateKey1Str := "xprvA39XqfTw2FPEfpMJmM6jK1gzzRv8p1GYJS3DUEEbp1SibLrRyZzHijYTTvzy2a57Es8CBxs2xseMNoLC7nNGxsJY3nfCT3aUeozRQoy8vTH"
+	privateKey1Str := "413uivqLEMjPd8bo42K9ic6VXpgYcJLEwB3vefxJDhXJ" //413uivqLEMjPd8bo42K9ic6VXpgYcJLEwB3vefxJDhXJ
+	//privateKeyTemp := base58.Decode(privateKey1Str)
+	//privateKey := privateKeyTemp[46:78]
+	//base58PrivageKey := base58.Encode(privateKey)
+	//fmt.Println("base58PrivageKey", base58PrivageKey)
+	//fmt.Println("privateKey1Str", privateKey1Str)
+	tx1 := getDIDTx(id1, "create", id11DocByts, privateKey1Str)
+	batch := s.validator.Store.NewBatch()
+	err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte(id1), tx1,
+		100, 123456)
+	s.NoError(err1)
+	batch.Commit()
+	tx3 := getCustomizedDIDTx(id1, "create", customizedDIDDocBytes11, privateKey1Str)
+	err3 := s.validator.checkCustomizedDID(tx3, 0, 0)
+	s.NoError(err3)
 
 	// todo fix me
 }
 
 //issuer.json SelfProclaimedCredential
 func (s *txValidatorTestSuite) TestCustomizedDIDMultSign() {
-	//id1 := "iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"
-	//privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
-	//tx1 := getDIDTx(id1, "create", id1DocByts, privateKey1Str)
+
+	//privateKeyUser1 := base58.Decode("xprvA39XqfTw2FPEjJK4n4XkDomsf2wnTD4n6nZgSm34Da9MosYtFNStyTGRpZU5aRyxpfJ98oK8Yw5GuBnP1Bx7oCrZB9BhWXR28orHW6A5QRn")
+	//privateKey1 := privateKeyUser1[46:78]
+	//base58PrivageKey1 := base58.Encode(privateKey1)
+	//fmt.Println("privateKeyUser1", base58PrivageKey1)
 	//
-	//batch := s.validator.Store.NewBatch()
-	//err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"), tx1,
-	//	100, 123456)
-	//s.NoError(err1)
-	//batch.Commit()
-	//
-	//CustomizedDIDTx1 := getCustomizedDIDTx(id1, "create", customizedDIDDocBytes1, privateKey1Str)
+	//privateKeyUser2 := base58.Decode("xprvA39XqfTw2FPEnHs4A7H9DRDxxGn7dJpyTdxHqUmBthNFhPAJGATFNdL8wBFZ1NHkC6USNWyEchycKkD3RoT7tPSfugBQVyyPNH3mrEP8KUy")
+	//privateKey2 := privateKeyUser2[46:78]
+	//base58PrivageKey2 := base58.Encode(privateKey2)
+	//fmt.Println("privateKeyUser2", base58PrivageKey2)
+
+	idUser1 := "iXcRhYB38gMt1phi5JXJMjeXL2TL8cg58y"
+	privateKeyUser1Str := "3z2QFDJE7woSUzL6az9sCB1jkZtzfvEZQtUnYVgQEebS"
+	tx1 := getDIDTx(idUser1, "create", idUser1DocByts, privateKeyUser1Str)
+
+	batch := s.validator.Store.NewBatch()
+	err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte(idUser1), tx1,
+		100, 123456)
+	s.NoError(err1)
+	batch.Commit()
+
+	//CustomizedDIDTx1 := getCustomizedDIDTx(idUser1, "create", customizedDIDDocBytes1, privateKeyUser1Str)
 	//err1 = s.validator.checkCustomizedDID(CustomizedDIDTx1, 0, 0)
 	//s.NoError(err1)
-	//
-	//privateKey2Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
-	//id2 := "ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
-	//tx2 := getDIDTx(id2, "create", id2DocByts, privateKey2Str)
-	//batch2 := s.validator.Store.NewBatch()
-	//err2 := s.validator.Store.PersistRegisterDIDTx(batch2, []byte("ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"), tx2,
-	//	100, 123456)
-	//s.NoError(err2)
-	//batch2.Commit()
-	//
-	//CustomizedDIDTx2 := getCustomizedDIDTxMultSign(id1, id2, "create", customizedDIDDocBytes2,
-	//	privateKey1Str, privateKey2Str)
-	//err := s.validator.checkCustomizedDID(CustomizedDIDTx2, 0, 0)
-	//s.NoError(err)
+
+	privateKeyUser2Str := "AqBB8Uur4QwwBtFPeA2Yd5yF2Ni45gyz2osfFcMcuP7J"
+	idUser2 := "idwuEMccSpsTH4ZqrhuHqg6y8XMVQAsY5g"
+	tx2 := getDIDTx(idUser2, "create", idUser2DocByts, privateKeyUser2Str)
+	batch2 := s.validator.Store.NewBatch()
+	err2 := s.validator.Store.PersistRegisterDIDTx(batch2, []byte(idUser2), tx2,
+		100, 123456)
+	s.NoError(err2)
+	batch2.Commit()
+
+	CustomizedDIDTx2 := getCustomizedDIDTxMultSign(idUser1, idUser2, "create", customizedDIDDocBytes2,
+		privateKeyUser1Str, privateKeyUser2Str)
+	err := s.validator.checkCustomizedDID(CustomizedDIDTx2, 0, 0)
+	s.NoError(err)
 
 	// todo fix me
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/elastos/Elastos.ELA/common"
@@ -291,6 +292,25 @@ type CustomIDTicket struct {
 	Proof         TransferCustomizedDIDProofInfo `json:"proof"`
 }
 
+type CustomizedDIDPayloadData struct {
+	CustomID             string                 `json:"id"`
+	Controller           interface{}            `json:"controller"`
+	Multisig             string                 `json:"multisig"`
+	PublicKey            []DIDPublicKeyInfo     `json:"publicKey"`
+	Authentication       []interface{}          `json:"authentication"`
+	VerifiableCredential []VerifiableCredential `json:"verifiableCredential"`
+	Expires              string                 `json:"expires"`
+}
+
+func (c *CustomizedDIDPayloadData) GetData() []byte {
+	data, err := didjson.Marshal(c)
+	if err != nil {
+		return nil
+	}
+	//fmt.Println(" data ", string(data))
+	return data
+}
+
 // payload in DID transaction payload
 type CustomizedDIDPayload struct {
 	CustomID             string                 `json:"id"`
@@ -301,6 +321,21 @@ type CustomizedDIDPayload struct {
 	VerifiableCredential []VerifiableCredential `json:"verifiableCredential"`
 	Expires              string                 `json:"expires"`
 	Proof                interface{}            `json:"proof"`
+}
+
+func (c *CustomizedDIDPayload) GetData() []byte {
+	data, err := didjson.Marshal(c)
+	if err != nil {
+		return nil
+	}
+	fmt.Println(" data ", string(data))
+	return data
+	//data, err := json.Marshal(c)
+	//if err != nil {
+	//	//log.Error("CustomizedDIDPayload GetData  ", err)
+	//	return []byte{}
+	//}
+	//return data
 }
 
 // payload of DID transaction

@@ -2,8 +2,10 @@ package mempool
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -341,29 +343,75 @@ func (v *validator) getPublicKeyByVerificationMethod(VerificationMethod, ID stri
 	return "", errors.New(" wrong public key by VerificationMethod ")
 }
 
-func (v *validator) checkCustomizedDIDAllVerificationMethod(verifyDoc *id.CustomizedDIDPayload, Proof interface{}) ([]*id.DIDProofInfo,
+func Unmarshal(src, target interface{}) error {
+	data, err := json.Marshal(src)
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(data, target); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (v *validator) checkCustomizedDIDAllVerificationMethod(verifyDoc *id.CustomizedDIDPayload, Proof interface{}) ([]*id.CustomizedDIDProofInfo,
 	error) {
 	//2,DIDProofInfo VerificationMethod must be in CustomizedDIDPayload Authentication or
 	//is come from controller
-	var DIDProofArray []*id.DIDProofInfo
-	var CustomizedDIDProof *id.DIDProofInfo
-	var bExist bool
+	//var DIDProofArray []*id.CustomizedDIDProofInfo
+	DIDProofArray := make([]*id.CustomizedDIDProofInfo, 0)
+
+	//var CustomizedDIDProof id.CustomizedDIDProofInfo
+	CustomizedDIDProof := &id.CustomizedDIDProofInfo{}
+	//var bExist bool
+
 	bDIDProofArray := false
-	if DIDProofArray, bDIDProofArray = Proof.([]*id.DIDProofInfo); bDIDProofArray == true {
+	if err := Unmarshal(Proof, &DIDProofArray); err == nil {
 		for _, CustomizedDIDProof = range DIDProofArray {
-			if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.VerificationMethod, verifyDoc.CustomID,
+			if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.Creator, verifyDoc.CustomID,
 				verifyDoc.PublicKey, verifyDoc.Authentication, verifyDoc.Controller); err != nil {
 				return nil, err
 			}
 		}
-	} else if CustomizedDIDProof, bExist = Proof.(*id.DIDProofInfo); bExist == true {
-		if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.VerificationMethod, verifyDoc.CustomID,
+	} else if err := Unmarshal(Proof, CustomizedDIDProof); err == nil {
+		if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.Creator, verifyDoc.CustomID,
 			verifyDoc.PublicKey, verifyDoc.Authentication, verifyDoc.Controller); err != nil {
 			return nil, err
 		}
 	} else {
 		//error
-		return nil, errors.New("Invalid Proof type")
+		return nil, errors.New("checkCustomizedDIDAllVerificationMethod Invalid Proof type")
+	}
+	//proof object
+	if bDIDProofArray == false {
+		DIDProofArray = append(DIDProofArray, CustomizedDIDProof)
+	}
+	return DIDProofArray, nil
+}
+
+func (v *validator) checkCustomizedDIDInnerAllVerificationMethod(verifyDoc *id.CustomizedDIDPayload, Proof interface{}) ([]*id.CustomizedDIDProofInfo,
+	error) {
+	//2,DIDProofInfo VerificationMethod must be in CustomizedDIDPayload Authentication or
+	//is come from controller
+	var DIDProofArray []*id.CustomizedDIDProofInfo
+	var CustomizedDIDProof *id.CustomizedDIDProofInfo
+	var bExist bool
+	bDIDProofArray := false
+	if DIDProofArray, bDIDProofArray = Proof.([]*id.CustomizedDIDProofInfo); bDIDProofArray == true {
+		for _, CustomizedDIDProof = range DIDProofArray {
+			if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.Type, verifyDoc.CustomID,
+				verifyDoc.PublicKey, verifyDoc.Authentication, verifyDoc.Controller); err != nil {
+				return nil, err
+			}
+		}
+	} else if CustomizedDIDProof, bExist = Proof.(*id.CustomizedDIDProofInfo); bExist == true {
+		if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.Type, verifyDoc.CustomID,
+			verifyDoc.PublicKey, verifyDoc.Authentication, verifyDoc.Controller); err != nil {
+			return nil, err
+		}
+	} else {
+		//error
+		return nil, errors.New("checkCustomizedDIDInnerAllVerificationMethod Invalid Proof type")
 	}
 	//proof object
 	if bDIDProofArray == false {
@@ -405,6 +453,10 @@ func (v *validator) checkCustomizedDIDVerificationMethod(VerificationMethod, txP
 				keyString := auth.(string)
 				if compactSymbol == getUriSegment(keyString) {
 					pubkeyCount++
+					//publicKey is primary and is reference in authentication
+					if pubkeyCount == 2 {
+						pubkeyCount--
+					}
 				}
 			case map[string]interface{}:
 				data, err := json.Marshal(auth)
@@ -1213,7 +1265,7 @@ func (v *validator) checkDIDVerifiableCredential(receiveDID, issuerID string,
 		publicKeyBase58 := getPublicKey(CustomizedDIDProof.VerificationMethod,
 			verifyPayloadinfo.Authentication, verifyPayloadinfo.PublicKey)
 		if publicKeyBase58 == "" {
-			return errors.New("Not find proper publicKeyBase58")
+			return errors.New("checkDIDVerifiableCredential Not find proper publicKeyBase58")
 		}
 		//get code
 		//var publicKeyByte []byte
@@ -1273,7 +1325,7 @@ func (v *validator) checkCustomizedDIDVerifiableCredential(customizedDID string,
 	//3, proof multisign verify
 	err = v.checkCustomIDInnerProof(DIDProofArray, payload, N, verifyDoc)
 	if err != nil {
-		return err
+		//return err
 	}
 	//4, Verifiable credential
 	if err = v.checkVeriﬁableCredential(verifyDoc.CustomID, []id.VerifiableCredential{*payload.Doc.VerifiableCredential},
@@ -1343,16 +1395,16 @@ func (v *validator) getVerifyDocMultisign(customizedID string) (*id.CustomizedDI
 }
 
 //3, proof multisign verify
-func (v *validator) checkCustomIDInnerProof(DIDProofArray []*id.DIDProofInfo, iDateContainer interfaces.IDataContainer,
+func (v *validator) checkCustomIDInnerProof(DIDProofArray []*id.CustomizedDIDProofInfo, iDateContainer interfaces.IDataContainer,
 	N int, verifyDoc *id.CustomizedDIDPayload) error {
 	verifyOkCount := 0
 	//3, proof multisign verify
 	for _, CustomizedDIDProof := range DIDProofArray {
 		//get  public key
-		publicKeyBase58, _ := v.getPublicKeyByVerificationMethod(CustomizedDIDProof.VerificationMethod, verifyDoc.CustomID,
+		publicKeyBase58, _ := v.getPublicKeyByVerificationMethod(CustomizedDIDProof.Creator, verifyDoc.CustomID,
 			verifyDoc.PublicKey, verifyDoc.Authentication, verifyDoc.Controller)
 		if publicKeyBase58 == "" {
-			return errors.New("Not find proper publicKeyBase58")
+			return errors.New("checkCustomIDInnerProof Not find proper publicKeyBase58")
 		}
 		//get code
 		//var publicKeyByte []byte
@@ -1363,8 +1415,13 @@ func (v *validator) checkCustomIDInnerProof(DIDProofArray []*id.DIDProofInfo, iD
 		if err != nil {
 			return err
 		}
-		signature, _ := base64url.DecodeString(CustomizedDIDProof.Signature)
+		signature, _ := base64url.DecodeString(CustomizedDIDProof.SignatureValue)
 
+		fmt.Printf("## data %s \n", string(iDateContainer.GetData()))
+		fmt.Printf("## publicKeyBase58 %s \n", publicKeyBase58)
+		fmt.Printf("## SignatureValue %s \n", CustomizedDIDProof.SignatureValue)
+
+		fmt.Printf("## code %s \n", hex.EncodeToString(code))
 		var success bool
 		success, err = v.VerifyByVM(iDateContainer, code, signature)
 
@@ -1418,10 +1475,10 @@ func (v *validator) checkCustomizedDIDAvailable(cPayload *id.CustomizedDIDOperat
 					return errors.New("not in controller")
 				}
 				// customID need be one oof the signature
-				if proofs, ok := cPayload.Doc.Proof.([]*id.DIDProofInfo); ok {
+				if proofs, ok := cPayload.Doc.Proof.([]*id.CustomizedDIDProofInfo); ok {
 					var invalidProofCount int
 					for _, proof := range proofs {
-						if strings.Contains(proof.VerificationMethod, rcDID) {
+						if strings.Contains(proof.Creator, rcDID) {
 							invalidProofCount++
 						}
 					}
@@ -1430,8 +1487,8 @@ func (v *validator) checkCustomizedDIDAvailable(cPayload *id.CustomizedDIDOperat
 					} else if invalidProofCount > 1 {
 						return errors.New("there is duplicated signature of custom ID")
 					}
-				} else if proof, ok := cPayload.Doc.Proof.(*id.DIDProofInfo); ok {
-					if !strings.Contains(proof.VerificationMethod, rcDID) {
+				} else if proof, ok := cPayload.Doc.Proof.(*id.CustomizedDIDProofInfo); ok {
+					if !strings.Contains(proof.Creator, rcDID) {
 						return errors.New("there is no signature of custom ID")
 					}
 				} else {
@@ -1640,7 +1697,17 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 	}
 
 	//3, proof multisign verify
-	err = v.checkCustomIDInnerProof(DIDProofArray, customizedDIDPayload, N, verifyDoc)
+	//customizedDIDPayload.Doc.Proof = nil
+	var docData id.CustomizedDIDPayloadData
+	docData.CustomID = customizedDIDPayload.Doc.CustomID
+	docData.Controller = customizedDIDPayload.Doc.Controller
+	docData.Multisig = customizedDIDPayload.Doc.Multisig
+	docData.PublicKey = customizedDIDPayload.Doc.PublicKey
+	docData.Authentication = customizedDIDPayload.Doc.Authentication
+	docData.VerifiableCredential = customizedDIDPayload.Doc.VerifiableCredential
+	docData.Expires = customizedDIDPayload.Doc.Expires
+
+	err = v.checkCustomIDInnerProof(DIDProofArray, &docData, N, verifyDoc)
 	if err != nil {
 		return err
 	}
@@ -1656,10 +1723,10 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 
 func (v *validator) checkCustomIDOuterProof(txPayload *id.CustomizedDIDOperation, verifyDoc *id.CustomizedDIDPayload) error {
 	//get  public key
-	publicKeyBase58 := getPublicKey(txPayload.Proof.VerificationMethod,
-		verifyDoc.Authentication, verifyDoc.PublicKey)
+	publicKeyBase58, _ := v.getPublicKeyByVerificationMethod(txPayload.Proof.VerificationMethod, verifyDoc.CustomID,
+		verifyDoc.PublicKey, verifyDoc.Authentication, verifyDoc.Controller)
 	if publicKeyBase58 == "" {
-		return errors.New("not find proper publicKeyBase58")
+		return errors.New("checkCustomIDOuterProof not find proper publicKeyBase58")
 	}
 	//get code
 	//var publicKeyByte []byte

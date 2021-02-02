@@ -92,6 +92,7 @@ type TransferDIDProofInfo struct {
 // Proof of DID transaction payload
 type DIDProofInfo struct {
 	Type               string `json:"type,omitempty"`
+	Created            string `json:"created"`
 	VerificationMethod string `json:"verificationMethod"`
 	Signature          string `json:"signature"`
 }
