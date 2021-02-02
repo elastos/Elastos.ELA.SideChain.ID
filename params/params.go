@@ -16,8 +16,11 @@ type DIDParams struct {
 	// CheckRegisterDIDHeight defines the height to check RegisterDID transactions.
 	CheckRegisterDIDHeight uint32
 
-	//VeriﬁableCredentialHeight defines the height to VeriﬁableCredential.
-	VeriﬁableCredentialHeight uint32
+	// VerifiableCredentialHeight defines the height to VeriﬁableCredential.
+	VerifiableCredentialHeight uint32
+
+	// CustomIDFeeRate defines the default fee rate of registerCustomID transaction
+	CustomIDFeeRate common.Fixed64
 }
 
 // These variables are the chain consensus parameters.
@@ -97,8 +100,9 @@ var (
 )
 
 var MainNetDIDParams = DIDParams{
-	CheckRegisterDIDHeight:    0,
-	VeriﬁableCredentialHeight: 0, //todo
+	CheckRegisterDIDHeight:     2000000, //todo complete me
+	VerifiableCredentialHeight: 2000000, //todo complete me
+	CustomIDFeeRate:            200000,  //todo complete me
 }
 
 // MainNetParams defines the network parameters for the main network.
@@ -156,7 +160,8 @@ func testNetParams(cfg config.Params, didParams DIDParams) (config.Params, DIDPa
 	cfg.NewP2PProtocolVersionHeight = 340000
 	cfg.RewardMinerOnlyStartHeight = 340000
 
-	didParams.VeriﬁableCredentialHeight = 420000 //todo
+	didParams.VerifiableCredentialHeight = 420000 //todo complete me
+	didParams.CustomIDFeeRate = 200000            //todo complete me
 	didParams.CheckRegisterDIDHeight = 528000
 	return cfg, didParams
 }
@@ -177,7 +182,8 @@ func regNetParams(cfg config.Params, didParams DIDParams) (config.Params, DIDPar
 	cfg.NewP2PProtocolVersionHeight = 203200
 	cfg.RewardMinerOnlyStartHeight = 205000
 
-	didParams.VeriﬁableCredentialHeight = 420000 //todo
+	didParams.VerifiableCredentialHeight = 420000 //todo complete me
+	didParams.CustomIDFeeRate = 200000            //todo complete me
 	didParams.CheckRegisterDIDHeight = 528000
 	return cfg, didParams
 }
