@@ -89,13 +89,40 @@ var (
 		0xf4, 0x9c, 0xaa, 0x97, 0x01, 0x5c, 0x9e,
 	}
 
+	test, _ = common.Uint168FromAddress("EVvikuPbrnuC7fYS4UWDfbNqoP8zJA4oUq")
+
 	// ELAAssetID represents the asset ID of ELA coin.
 	ElaAssetId = elaAsset.Hash()
+
+	coinBase = types.Transaction{
+		TxType:         types.CoinBase,
+		PayloadVersion: payload.CoinBaseVersion,
+		Payload:        &payload.CoinBase{},
+		Attributes:     []*types.Attribute{},
+		Inputs: []*types.Input{
+			{
+				Previous: types.OutPoint{
+					TxID:  common.Uint256{},
+					Index: 0x0000,
+				},
+				Sequence: 0x00000000,
+			},
+		},
+		Outputs: []*types.Output{
+			{
+				AssetID:     elaAsset.Hash(),
+				Value:       3300 * 10000 * 100000000,
+				ProgramHash: *test,
+			},
+		},
+		LockTime: 0,
+		Programs: []*types.Program{},
+	}
 
 	// GenesisBlock represent the genesis block of the ID chain.
 	GenesisBlock = &types.Block{
 		Header:       &genesisHeader,
-		Transactions: []*types.Transaction{&elaAsset},
+		Transactions: []*types.Transaction{&coinBase, &elaAsset},
 	}
 )
 

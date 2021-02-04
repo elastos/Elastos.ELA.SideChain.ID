@@ -971,7 +971,8 @@ func (v *validator) checkDIDOperation(header *id.DIDHeaderInfo,
 	}
 	if dbExist {
 		if header.Operation == id.Create_DID_Operation {
-			return errors.New("DID WRONG OPERATION ALREADY EXIST")
+			return nil
+			//return errors.New("DID WRONG OPERATION ALREADY EXIST")
 		} else if header.Operation == id.Update_DID_Operation {
 			//check PreviousTxid
 			hash, err := common.Uint256FromHexString(header.PreviousTxid)

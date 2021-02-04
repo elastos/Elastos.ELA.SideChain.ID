@@ -17,15 +17,15 @@ const SlotDeactivateCustomizedDID = "deactivatecustomizeddid"
 
 func New(cfg *memp.Config) *memp.TxPool {
 	txPool := memp.New(cfg)
-	txPool.AddConflictSlot(&memp.Conflict{
-		Name: SlotRegisterDID,
-		Slot: memp.NewConflictSlot(memp.Str,
-			memp.KeyTypeFuncPair{
-				Type: types.RegisterDID,
-				Func: addRegisterDIDTransactionHash,
-			},
-		),
-	})
+	//txPool.AddConflictSlot(&memp.Conflict{
+	//	Name: SlotRegisterDID,
+	//	Slot: memp.NewConflictSlot(memp.Str,
+	//		memp.KeyTypeFuncPair{
+	//			Type: types.RegisterDID,
+	//			Func: addRegisterDIDTransactionHash,
+	//		},
+	//	),
+	//})
 	txPool.AddConflictSlot(&memp.Conflict{
 		Name: SlotDeactivateDID,
 		Slot: memp.NewConflictSlot(memp.Str,
