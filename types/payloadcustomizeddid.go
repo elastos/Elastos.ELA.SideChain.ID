@@ -285,10 +285,19 @@ func (p *CustomizedDIDVerifiableCredential) GetData() []byte {
 }
 
 type CustomIDTicket struct {
-	CustomID      string                         `json:"id"`
-	To            string                         `json:"to"`
-	TransactionID string                         `json:"txid"`
-	Proof         TransferCustomizedDIDProofInfo `json:"proof"`
+	CustomID      string      `json:"id"`
+	To            string      `json:"to"`
+	TransactionID string      `json:"txid"`
+	Proof         interface{} `json:"proof"`
+}
+
+func (c *CustomIDTicket) GetData() []byte {
+	data, err := didjson.Marshal(c)
+	if err != nil {
+		return nil
+	}
+	//fmt.Println(" data ", string(data))
+	return data
 }
 
 type CustomizedDIDPayloadData struct {

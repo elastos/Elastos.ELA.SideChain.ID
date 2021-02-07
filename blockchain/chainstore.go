@@ -357,7 +357,6 @@ func (c *IDChainStore) persistCustomizedDIDTx(batch database.Batch,
 		return err
 	}
 
-	// todo persit tx type(create and transfer)
 	if err := c.persistCustomizedDIDPayload(batch, tx.Hash(), customizedDIDOperation); err != nil {
 		return err
 	}
@@ -1090,6 +1089,31 @@ func (c *IDChainStore) GetLastDIDTxData(idKey []byte) (*id.TranasactionData, err
 	tempTxData.Timestamp = tempOperation.PayloadInfo.Expires
 
 	return tempTxData, nil
+}
+
+func (c *IDChainStore) GetLastCustomizedDIDTxHash(idKey []byte) (common.Uint256, error) {
+	key := []byte{byte(IX_CUSTOMIZEDDIDTXHash)}
+	key = append(key, idKey...)
+
+	data, err := c.Get(key)
+	if err != nil {
+		return common.Uint256{}, err
+	}
+
+	r := bytes.NewReader(data)
+	count, err := common.ReadVarUint(r, 0)
+	if err != nil {
+		return common.Uint256{}, err
+	}
+	if count == 0 {
+		return common.Uint256{}, errors.New("not exist")
+	}
+	var txHash common.Uint256
+	if err := txHash.Deserialize(r); err != nil {
+		return common.Uint256{}, err
+	}
+
+	return txHash, nil
 }
 
 func (c *IDChainStore) GetLastCustomizedDIDTxData(idKey []byte) (*id.CustomizedDIDTranasactionData, error) {

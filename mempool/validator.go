@@ -352,6 +352,34 @@ func Unmarshal(src, target interface{}) error {
 	return nil
 }
 
+func (v *validator) checkCustomizedDIDTicketProof(verifyDoc *id.CustomizedDIDPayload, Proof interface{}) ([]*id.TransferCustomizedDIDProofInfo,
+	error) {
+	DIDProofArray := make([]*id.TransferCustomizedDIDProofInfo, 0)
+	CustomizedDIDProof := &id.TransferCustomizedDIDProofInfo{}
+	bDIDProofArray := false
+	if err := Unmarshal(Proof, &DIDProofArray); err == nil {
+		for _, CustomizedDIDProof = range DIDProofArray {
+			if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.VerificationMethod, verifyDoc.CustomID,
+				verifyDoc.PublicKey, verifyDoc.Authentication, verifyDoc.Controller); err != nil {
+				return nil, err
+			}
+		}
+	} else if err := Unmarshal(Proof, CustomizedDIDProof); err == nil {
+		if err := v.checkCustomizedDIDVerificationMethod(CustomizedDIDProof.VerificationMethod, verifyDoc.CustomID,
+			verifyDoc.PublicKey, verifyDoc.Authentication, verifyDoc.Controller); err != nil {
+			return nil, err
+		}
+	} else {
+		//error
+		return nil, errors.New("checkCustomizedDIDAllVerificationMethod Invalid Proof type")
+	}
+	//proof object
+	if bDIDProofArray == false {
+		DIDProofArray = append(DIDProofArray, CustomizedDIDProof)
+	}
+	return DIDProofArray, nil
+}
+
 func (v *validator) checkCustomizedDIDAllVerificationMethod(verifyDoc *id.CustomizedDIDPayload, Proof interface{}) ([]*id.CustomizedDIDProofInfo,
 	error) {
 	//2,DIDProofInfo VerificationMethod must be in CustomizedDIDPayload Authentication or
@@ -1420,6 +1448,45 @@ func (v *validator) getVerifyDocMultisign(customizedID string) (*id.CustomizedDI
 	return transactionData.Operation.Doc, nil
 }
 
+func (v *validator) checkCustomIDTicketProof(ticketProofArray []*id.TransferCustomizedDIDProofInfo, iDateContainer interfaces.IDataContainer,
+	N int, verifyDoc *id.CustomizedDIDPayload) error {
+	verifyOkCount := 0
+	//3, proof multisign verify
+	for _, ticketProof := range ticketProofArray {
+		//get  public key
+		publicKeyBase58, _ := v.getPublicKeyByVerificationMethod(ticketProof.VerificationMethod, verifyDoc.CustomID,
+			verifyDoc.PublicKey, verifyDoc.Authentication, verifyDoc.Controller)
+		if publicKeyBase58 == "" {
+			return errors.New("checkCustomIDTicketProof Not find proper publicKeyBase58")
+		}
+		//get code
+		//var publicKeyByte []byte
+		publicKeyByte := base58.Decode(publicKeyBase58)
+
+		//var code []byte
+		code, err := getCodeByPubKey(publicKeyByte)
+		if err != nil {
+			return err
+		}
+		signature, _ := base64url.DecodeString(ticketProof.SignatureValue)
+
+		var success bool
+		success, err = v.VerifyByVM(iDateContainer, code, signature)
+
+		if err != nil {
+			return err
+		}
+		if !success {
+			return errors.New("[VM] Check Sig FALSE")
+		}
+		verifyOkCount++
+	}
+	if verifyOkCount < N {
+		return errors.New("[VM] Check Sig FALSE verifyOkCount < N")
+	}
+	return nil
+}
+
 //3, proof multisign verify
 func (v *validator) checkCustomIDInnerProof(DIDProofArray []*id.CustomizedDIDProofInfo, iDateContainer interfaces.IDataContainer,
 	N int, verifyDoc *id.CustomizedDIDPayload) error {
@@ -1523,8 +1590,76 @@ func (v *validator) checkCustomizedDIDAvailable(cPayload *id.CustomizedDIDOperat
 	return nil
 }
 
-func (v *validator) checkTicketAvailable(cPayload *id.CustomizedDIDOperation) error {
-	// todo 'to' need in controller and have signature
+func (v *validator) checkTicketAvailable(cPayload *id.CustomizedDIDOperation,
+	customID string, lastTxHash common.Uint256, N int, verifyDoc *id.CustomizedDIDPayload) error {
+	// check customID
+	if cPayload.Ticket.CustomID != customID {
+		return errors.New("invalid CustomID in ticket")
+	}
+
+	// 'to' need exist in controller
+	to := cPayload.Ticket.To
+	var existInController bool
+	if controllerArray, ok := cPayload.Doc.Controller.([]interface{}); ok {
+		for _, controller := range controllerArray {
+			if controller == to {
+				existInController = true
+			}
+		}
+	} else if controller, ok := cPayload.Doc.Controller.(string); ok {
+		if controller == to {
+			existInController = true
+		}
+	}
+	if !existInController {
+		return errors.New("'to' is not in controller")
+	}
+
+	// 'to' need exist in proof
+	dIDProofArray := make([]*id.CustomizedDIDProofInfo, 0)
+	customizedDIDProof := &id.CustomizedDIDProofInfo{}
+	existInProof := false
+	if err := Unmarshal(cPayload.Doc.Proof, &dIDProofArray); err == nil {
+		for _, proof := range dIDProofArray {
+			if proof.Creator == to {
+				existInProof = true
+			}
+		}
+
+	} else if err := Unmarshal(cPayload.Doc.Proof, customizedDIDProof); err == nil {
+		if customizedDIDProof.Creator == to {
+			existInProof = true
+		}
+	}
+	if !existInProof {
+		return errors.New("'to' is not in proof")
+	}
+
+	// check transactionID
+	if cPayload.Ticket.TransactionID != lastTxHash.String() {
+		return errors.New("invalid TransactionID of ticket")
+	}
+
+	// check proof
+	if err := v.checkTicketProof(cPayload.Ticket, N, verifyDoc, cPayload.Ticket.Proof); err != nil {
+		return errors.New("invalid proof of ticket")
+	}
+
+	return nil
+}
+
+func (v *validator) checkTicketProof(ticket *id.CustomIDTicket, N int,
+	verifyDoc *id.CustomizedDIDPayload, Proof interface{}) error {
+	ticketProofArray, err := v.checkCustomizedDIDTicketProof(verifyDoc, Proof)
+	if err != nil {
+		return err
+	}
+
+	err = v.checkCustomIDTicketProof(ticketProofArray, ticket, N, verifyDoc)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -1673,7 +1808,8 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 	//1, if it is "create" use now m/n and public key otherwise use last time m/n and public key
 	//var verifyDoc *id.CustomizedDIDPayload
 	var verifyDoc *id.CustomizedDIDPayload
-	if customizedDIDPayload.Header.Operation == id.Create_Customized_DID_Operation {
+	if customizedDIDPayload.Header.Operation == id.Create_Customized_DID_Operation ||
+		customizedDIDPayload.Header.Operation == id.Transfer_Customized_DID_Operation {
 		verifyDoc = customizedDIDPayload.Doc
 	} else {
 		verifyDoc, err = v.getVerifyDocMultisign(customizedDIDPayload.Doc.CustomID)
@@ -1696,15 +1832,25 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 	//todo This custoized did and register did are mutually exclusive
 	//todo check expires
 
-	// todo check ticket when operation is 'Transfer'
-	if err := v.checkTicketAvailable(customizedDIDPayload); err != nil {
-		return err
-	}
 	N := 0
 	multisignStr := verifyDoc.Multisig
 	if multisignStr != "" {
 		_, N, err = GetMultisignMN(multisignStr)
 		if err != nil {
+			return err
+		}
+	}
+
+	// check ticket when operation is 'Transfer'
+	if customizedDIDPayload.Header.Operation == id.Transfer_Customized_DID_Operation {
+		buf := new(bytes.Buffer)
+		buf.WriteString(verifyDoc.CustomID)
+		lastTxHash, err := v.Store.GetLastCustomizedDIDTxHash(buf.Bytes())
+		if err != nil {
+			return err
+		}
+		if err := v.checkTicketAvailable(customizedDIDPayload,
+			verifyDoc.CustomID, lastTxHash, N, verifyDoc); err != nil {
 			return err
 		}
 	}
