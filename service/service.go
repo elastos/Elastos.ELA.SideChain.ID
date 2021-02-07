@@ -203,7 +203,6 @@ func (s *HttpService) ResolveDID(param http.Params) (interface{}, error) {
 		return rpcPayloadDid, nil
 	}
 
-	expiresTime, err := time.Parse(time.RFC3339, txData.Operation.PayloadInfo.Expires)
 	if err != nil {
 		return nil, http.NewError(int(service.InternalError), "Parse Expires failed")
 	}
@@ -245,9 +244,6 @@ func (s *HttpService) ResolveDID(param http.Params) (interface{}, error) {
 				didDocState = Deactivated
 			} else {
 				didDocState = Valid
-				if s.cfg.Chain.MedianTimePast.After(expiresTime) {
-					didDocState = Expired
-				}
 			}
 			rpcPayloadDid.Status = int(didDocState)
 		}
