@@ -1407,9 +1407,13 @@ func (v *validator) checkVerifiableCredential(txn *types.Transaction, height uin
 	//if one credential is revoke  can not be decalre or revoke again
 	// this is the receiver id  todo
 	receiverID := GetVerifiableCredentialID(payload.Doc)
-	credentialID := payload.Doc.ID
+	var credentialID string
+	if payload.Header.Operation == id.Declare_Verifiable_Credential_Operation {
+		credentialID = payload.Doc.ID
+	} else {
+		credentialID = payload.Payload
+	}
 	issuer := v.getCredentialIssuer(receiverID, payload.Doc.VerifiableCredential)
-	//todo here should be credentialID
 	if err := v.checkVerifiableCredentialOperation(&payload.Header, credentialID); err != nil {
 		return err
 	}
