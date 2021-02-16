@@ -547,16 +547,19 @@ func (p *VerifiableCredentialPayload) Deserialize(r io.Reader, version byte) err
 		errors.New("[VerifiableCredentialPayload], Proof count invalid")
 	}
 
-	// get DIDPayloadInfo from payload data
-	pBytes, err := base64url.DecodeString(p.Payload)
-	if err != nil {
-		return errors.New("[VerifiableCredentialPayload], payload decode failed")
+	if p.Header.Operation == Declare_Verifiable_Credential_Operation {
+		// get DIDPayloadInfo from payload data
+		pBytes, err := base64url.DecodeString(p.Payload)
+		if err != nil {
+			return errors.New("[VerifiableCredentialPayload], payload decode failed")
+		}
+		doc := new(VerifiableCredentialDoc)
+		if err := json.Unmarshal(pBytes, doc); err != nil {
+			return errors.New("[VerifiableCredentialPayload], payload unmarshal failed")
+		}
+		p.Doc = doc
 	}
-	doc := new(VerifiableCredentialDoc)
-	if err := json.Unmarshal(pBytes, doc); err != nil {
-		return errors.New("[VerifiableCredentialPayload], payload unmarshal failed")
-	}
-	p.Doc = doc
+
 	return nil
 }
 
