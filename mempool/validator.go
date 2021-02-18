@@ -1048,16 +1048,14 @@ func (v *validator) checkDIDOperation(header *id.DIDHeaderInfo,
 
 //1, if one credential is declear can not be declear again
 //if one credential is revoke  can not be decalre or revoke again
-func (v *validator) checkVerifiableCredentialOperation(header *id.CustomizedDIDHeaderInfo,
+func (v *validator) checkDeclareVerifiableCredentialOperation(header *id.VerifiableCredentialHeaderInfo,
 	CredentialID string) error {
-	if header.Operation != id.Declare_Verifiable_Credential_Operation &&
-		header.Operation != id.Revoke_Verifiable_Credential_Operation {
-		return errors.New("checkVerifiableCredentialOperation WRONG OPERATION")
+	if header.Operation != id.Declare_Verifiable_Credential_Operation {
+		return errors.New("checkDeclareVerifiableCredentialOperation WRONG OPERATION")
 	}
 	buf := new(bytes.Buffer)
 	buf.WriteString(CredentialID)
-	lastTXData, err := v.Store.GetLastVerifiableCredentialTxData(buf.Bytes())
-
+	_, err := v.Store.GetLastVerifiableCredentialTxData(buf.Bytes())
 	dbExist := true
 	if err != nil {
 		if err.Error() == leveldb.ErrNotFound.Error() {
@@ -1067,25 +1065,9 @@ func (v *validator) checkVerifiableCredentialOperation(header *id.CustomizedDIDH
 		}
 	}
 	if dbExist {
-		if header.Operation == id.Declare_Verifiable_Credential_Operation {
-			return errors.New("VerifiableCredential WRONG OPERATION ALREADY Declare")
-		} else if lastTXData.Operation.Header.Operation == id.Revoke_Verifiable_Credential_Operation {
-			//check PreviousTxid
-			hash, err := common.Uint256FromHexString(header.PreviousTxid)
-			if err != nil {
-				return err
-			}
-			preTXID := service.ToReversedString(*hash)
-
-			if lastTXData.TXID != preTXID {
-				return errors.New("Customized DID PreviousTxid IS NOT CORRECT")
-			}
-		}
-	} else {
-		if header.Operation == id.Revoke_Verifiable_Credential_Operation {
-			return errors.New(" Revoke WRONG Verifiable_Credential NOT EXIST")
-		}
+		return errors.New("VerifiableCredential WRONG OPERATION ALREADY Declare")
 	}
+
 	return nil
 }
 
@@ -1403,18 +1385,25 @@ func (v *validator) checkVerifiableCredential(txn *types.Transaction, height uin
 	if err != nil {
 		return errors.New("invalid ExpirationDate")
 	}
+
+	switch payload.Header.Operation {
+	case id.Declare_Verifiable_Credential_Operation:
+		return v.checkDeclareVerifiableCredential(payload)
+	case id.Revoke_Verifiable_Credential_Operation:
+		return v.checkRevokeVerifiableCredential(payload)
+	}
+
+	return errors.New("invalid operation")
+}
+
+func (v *validator) checkDeclareVerifiableCredential(payload *id.VerifiableCredentialPayload) error {
 	//1, if one credential is declear can not be declear again
 	//if one credential is revoke  can not be decalre or revoke again
 	// this is the receiver id  todo
 	receiverID := GetVerifiableCredentialID(payload.Doc)
-	var credentialID string
-	if payload.Header.Operation == id.Declare_Verifiable_Credential_Operation {
-		credentialID = payload.Doc.ID
-	} else {
-		credentialID = payload.Payload
-	}
+	credentialID := payload.Doc.ID
 	issuer := v.getCredentialIssuer(receiverID, payload.Doc.VerifiableCredential)
-	if err := v.checkVerifiableCredentialOperation(&payload.Header, credentialID); err != nil {
+	if err := v.checkDeclareVerifiableCredentialOperation(&payload.Header, credentialID); err != nil {
 		return err
 	}
 
@@ -1439,6 +1428,39 @@ func (v *validator) checkVerifiableCredential(txn *types.Transaction, height uin
 	} else {
 		return v.checkCustomizedDIDVerifiableCredential(receiverID, payload)
 	}
+}
+
+func (v *validator) checkRevokeVerifiableCredential(payload *id.VerifiableCredentialPayload) error {
+	credentialID := payload.Payload
+
+	buf := new(bytes.Buffer)
+	buf.WriteString(credentialID)
+	lastTXData, err := v.Store.GetLastVerifiableCredentialTxData(buf.Bytes())
+
+	dbExist := true
+	if err != nil {
+		if err.Error() == leveldb.ErrNotFound.Error() {
+			dbExist = false
+		} else {
+			return err
+		}
+	}
+	if dbExist {
+		if lastTXData == nil {
+			return errors.New("checkRevokeVerifiableCredential invalid last transaction")
+		}
+		if lastTXData.Operation.Header.Operation == id.Revoke_Verifiable_Credential_Operation {
+			return errors.New("VerifiableCredential revoked again")
+		}
+
+		// check if owner or issuer send this transaction
+		owner := GetVerifiableCredentialID(lastTXData.Operation.Doc)
+		issuer := v.getCredentialIssuer(owner, lastTXData.Operation.Doc.VerifiableCredential)
+
+		return v.checkDIDVerifiableCredential(owner, issuer, payload)
+	}
+
+	return nil
 }
 
 //	if operation is "create" use now m/n and public key otherwise use last time m/n and public key

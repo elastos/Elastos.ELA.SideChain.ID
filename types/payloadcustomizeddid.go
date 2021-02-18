@@ -29,6 +29,37 @@ const (
 )
 
 // header of Customized DID transaction payload
+type VerifiableCredentialHeaderInfo struct {
+	Specification string `json:"specification"`
+	Operation     string `json:"operation"`
+}
+
+func (d *VerifiableCredentialHeaderInfo) Serialize(w io.Writer, version byte) error {
+	if err := common.WriteVarString(w, d.Specification); err != nil {
+		return errors.New("[CustomizedDIDHeaderInfo], Specification serialize failed.")
+	}
+
+	if err := common.WriteVarString(w, d.Operation); err != nil {
+		return errors.New("[CustomizedDIDHeaderInfo], Operation serialize failed.")
+	}
+	return nil
+}
+
+func (d *VerifiableCredentialHeaderInfo) Deserialize(r io.Reader, version byte) error {
+	var err error
+	d.Specification, err = common.ReadVarString(r)
+	if err != nil {
+		return errors.New("[CustomizedDIDHeaderInfo], Specification deserialize failed.")
+	}
+
+	d.Operation, err = common.ReadVarString(r)
+	if err != nil {
+		return errors.New("[CustomizedDIDHeaderInfo], Operation deserialize failed.")
+	}
+	return nil
+}
+
+// header of Customized DID transaction payload
 type CustomizedDIDHeaderInfo struct {
 	Specification string `json:"specification"`
 	Operation     string `json:"operation"`
@@ -460,8 +491,8 @@ type VerifiableCredentialTxData struct {
 
 // payload of VerifiableCredential transaction
 type VerifiableCredentialPayload struct {
-	Header  CustomizedDIDHeaderInfo `json:"header"`
-	Payload string                  `json:"payload"`
+	Header  VerifiableCredentialHeaderInfo `json:"header"`
+	Payload string                         `json:"payload"`
 	// DIDProofInfo
 	Proof interface{} `json:"proof"`
 
@@ -564,15 +595,7 @@ func (p *VerifiableCredentialPayload) Deserialize(r io.Reader, version byte) err
 }
 
 func (p *VerifiableCredentialPayload) GetData() []byte {
-	var dataString string
-	if p.Header.Operation == Revoke_Verifiable_Credential_Operation {
-		dataString = p.Header.Specification + p.Header.Operation + p.Header.
-			PreviousTxid + p.Payload
-
-	} else {
-		dataString = p.Header.Specification + p.Header.Operation + p.Payload
-
-	}
+	dataString := p.Header.Specification + p.Header.Operation + p.Payload
 	return []byte(dataString)
 }
 
