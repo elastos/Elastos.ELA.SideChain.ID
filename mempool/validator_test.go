@@ -646,7 +646,7 @@ func getDIDVerifiableCredentialPayload(id string, didOperation string, docBytes 
 	json.Unmarshal(docBytes, info)
 
 	p := &types.VerifiableCredentialPayload{
-		Header: types.CustomizedDIDHeaderInfo{
+		Header: types.VerifiableCredentialHeaderInfo{
 			Specification: "elastos/did/1.0",
 			Operation:     didOperation,
 		},
@@ -957,7 +957,7 @@ func getCustomizedDIDVerifiableCredPayloadContollers(id1, id2 string, didOperati
 
 	var Proofs []*types.DIDProofInfo
 	p := &types.VerifiableCredentialPayload{
-		Header: types.CustomizedDIDHeaderInfo{
+		Header: types.VerifiableCredentialHeaderInfo{
 			Specification: "elastos/did/1.0",
 			Operation:     didOperation,
 		},
