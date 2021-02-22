@@ -1342,3 +1342,47 @@ func (c *IDChainStore) GetLastVerifiableCredentialTxData(idKey []byte) (*id.Veri
 
 	return tempTxData, nil
 }
+
+func (c *IDChainStore) GetAllVerifiableCredentialTxData(idKey []byte) ([]id.VerifiableCredentialTxData, error) {
+	key := []byte{byte(IX_VerifiableCredentialTXHash)}
+	key = append(key, idKey...)
+
+	data, err := c.Get(key)
+	if err != nil {
+		return nil, err
+	}
+
+	r := bytes.NewReader(data)
+	count, err := common.ReadVarUint(r, 0)
+	if err != nil {
+		return nil, err
+	}
+	var transactionsData []id.VerifiableCredentialTxData
+	for i := uint64(0); i < count; i++ {
+		var txHash common.Uint256
+		if err := txHash.Deserialize(r); err != nil {
+			return nil, err
+		}
+		keyPayload := []byte{byte(IX_VerifiableCredentialPayload)}
+		keyPayload = append(keyPayload, txHash.Bytes()...)
+
+		payloadData, err := c.Get(keyPayload)
+		if err != nil {
+			return nil, err
+		}
+		vcPayload := new(id.VerifiableCredentialPayload)
+		r := bytes.NewReader(payloadData)
+		err = vcPayload.Deserialize(r, id.VerifiableCredentialVersion)
+		if err != nil {
+			return nil, http.NewError(int(service.InvalidTransaction),
+				"verifiable credential payload Deserialize failed")
+		}
+		tempTxData := new(id.VerifiableCredentialTxData)
+		tempTxData.TXID = txHash.String()
+		tempTxData.Timestamp = vcPayload.Doc.ExpirationDate
+		tempTxData.Operation = *vcPayload
+		transactionsData = append(transactionsData, *tempTxData)
+	}
+
+	return transactionsData, nil
+}
