@@ -59,6 +59,13 @@ func (c DidDocState) String() string {
 	}
 }
 
+const (
+	CredentialValid = iota
+	CredentialReserve
+	CredentialRevoked
+	CredentialNonExist
+)
+
 func NewHttpService(cfg *Config) *HttpService {
 	server := &HttpService{
 		HttpService: service.NewHttpService(&cfg.Config),
@@ -143,6 +150,40 @@ func (rpcTxData *RpcTranasactionData) FromTranasactionData(txData id.
 	return true
 }
 
+// payload of DID transaction
+type RpcCredentialPayloadDIDInfo struct {
+	ID         string                         `json:"id"`
+	Status     int                            `json:"status"`
+	RpcTXDatas []RpcCredentialTransactionData `json:"transaction,omitempty"`
+}
+
+type RpcCredentialTransactionData struct {
+	TXID      string              `json:"txid"`
+	Timestamp string              `json:"timestamp"`
+	Operation CredentialOperation `json:"operation"`
+}
+
+type CredentialOperation struct {
+	Header  id.VerifiableCredentialHeaderInfo `json:"header"`
+	Payload string                            `json:"payload"`
+	Proof   interface{}                       `json:"proof"`
+}
+
+func (rpcTxData *RpcCredentialTransactionData) FromCredentialTranasactionData(txData id.
+	VerifiableCredentialTxData) bool {
+	hash, err := common.Uint256FromHexString(txData.TXID)
+	if err != nil {
+		return false
+	}
+
+	rpcTxData.TXID = service.ToReversedString(*hash)
+	rpcTxData.Timestamp = txData.Timestamp
+	rpcTxData.Operation.Header = txData.Operation.Header
+	rpcTxData.Operation.Payload = txData.Operation.Payload
+	rpcTxData.Operation.Proof = txData.Operation.Proof
+	return true
+}
+
 func (s *HttpService) getTxTime(txid string) (error, uint32) {
 	hash, err := common.Uint256FromHexString(txid)
 	if err != nil {
@@ -162,6 +203,80 @@ func (s *HttpService) getTxTime(txid string) (error, uint32) {
 
 	}
 	return nil, header.GetTimeStamp()
+}
+
+func (s *HttpService) ResolveCredential(param http.Params) (interface{}, error) {
+	idParam, ok := param.String("id")
+	if !ok {
+		return nil, http.NewError(int(service.InvalidParams), "id is null")
+	}
+	var credentialID string
+	//remove DID_ELASTOS_PREFIX
+	if id.IsURIHasPrefix(idParam) {
+		credentialID = id.GetDIDFromUri(idParam)
+	} else {
+		credentialID = idParam
+	}
+
+	buf := new(bytes.Buffer)
+	buf.WriteString(credentialID)
+	txsData, _ := s.store.GetAllVerifiableCredentialTxData(buf.Bytes())
+
+	var issuerID string
+	issuer, ok := param.String("issuer")
+	if !ok {
+		if len(txsData) == 0 {
+			return RpcCredentialPayloadDIDInfo{ID: credentialID, Status: CredentialNonExist}, nil
+		}
+	} else {
+		//remove DID_ELASTOS_PREFIX
+		if id.IsURIHasPrefix(issuer) {
+			issuerID = id.GetDIDFromUri(issuer)
+		} else {
+			issuerID = idParam
+		}
+	}
+
+	var rpcPayloadDid RpcCredentialPayloadDIDInfo
+	for index, txData := range txsData {
+		rpcPayloadDid.ID = txData.Operation.Doc.ID
+		err, timestamp := s.getTxTime(txData.TXID)
+		if err != nil {
+			continue
+		}
+		tempTXData := new(RpcCredentialTransactionData)
+		ok := tempTXData.FromCredentialTranasactionData(txData)
+		if !ok {
+			continue
+		}
+
+		var isRevokeTransaction bool
+		if len(txsData) == 2 && index == 0 {
+			isRevokeTransaction = true
+		}
+
+		signer := txData.Operation.Proof.(*id.InnerDIDProofInfo).VerificationMethod
+		if isRevokeTransaction && issuerID == "" && signer == txData.Operation.Doc.Issuer {
+			continue
+		}
+
+		if isRevokeTransaction && issuerID != "" && signer != issuerID {
+			continue
+		}
+
+		tempTXData.Timestamp = time.Unix(int64(timestamp), 0).UTC().Format(time.RFC3339)
+		rpcPayloadDid.RpcTXDatas = append(rpcPayloadDid.RpcTXDatas, *tempTXData)
+	}
+
+	if len(txsData) == 0 {
+		rpcPayloadDid.Status = CredentialNonExist
+	} else if len(txsData) == 1 {
+		rpcPayloadDid.Status = CredentialValid
+	} else if len(txsData) == 2 {
+		rpcPayloadDid.Status = CredentialRevoked
+	}
+
+	return rpcPayloadDid, nil
 }
 
 func (s *HttpService) ResolveDID(param http.Params) (interface{}, error) {

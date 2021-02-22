@@ -494,6 +494,7 @@ type VerifiableCredentialPayload struct {
 	Header  VerifiableCredentialHeaderInfo `json:"header"`
 	Payload string                         `json:"payload"`
 	// DIDProofInfo
+	// todo use InnerDIDProofInfo, use interface{} in Doc
 	Proof interface{} `json:"proof"`
 
 	Doc *VerifiableCredentialDoc
