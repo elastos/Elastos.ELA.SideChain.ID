@@ -82,10 +82,12 @@ func (s *txValidatorTestSuite) SetupSuite() {
 		fmt.Println("failed to new spvService")
 		return
 	}
+	cfg.ChainStore = idChainStore.ChainStore
 	txFeeHelper := mempool.NewFeeHelper(cfg)
 	cfg.FeeHelper = txFeeHelper
 	cfg.Chain = chain
 	cfg.SpvService = spvService
+
 	s.validator = *NewValidator(cfg, idChainStore, &didParams)
 }
 
@@ -572,6 +574,7 @@ func (s *txValidatorTestSuite) TestGenrateTxFromRawTxStr() {
 		fmt.Println("err2", err2)
 		return
 	}
+	s.validator.didParam.CustomIDFeeRate = 0
 	s.validator.checkRegisterDID(&tx, 0, 0)
 }
 
@@ -707,6 +710,7 @@ func (s *txValidatorTestSuite) TestCheckRegisterDID() {
 	s.NoError(err1)
 	batch.Commit()
 
+	s.validator.didParam.CustomIDFeeRate = 0
 	err2 := s.validator.checkRegisterDID(tx1, 0, 0)
 	s.NoError(err2)
 }
@@ -731,6 +735,7 @@ func (s *txValidatorTestSuite) TestCustomizedDID() {
 
 	//examplercorp.id.json
 	tx3 := getCustomizedDIDTx(id1, "create", customizedDIDDocSingleContrller, privateKey1Str)
+	s.validator.didParam.CustomIDFeeRate = 0
 	err3 := s.validator.checkCustomizedDID(tx3, 0, 0)
 	s.NoError(err3)
 
@@ -760,6 +765,7 @@ func (s *txValidatorTestSuite) TestCustomizedDIDMultSign() {
 
 	CustomizedDIDTx2 := getCustomizedDIDTxMultSign(idUser1, idUser2, "create", customizedDIDDocBytes2,
 		privateKeyUser1Str, privateKeyUser2Str)
+	s.validator.didParam.CustomIDFeeRate = 0
 	err := s.validator.checkCustomizedDID(CustomizedDIDTx2, 0, 0)
 	s.NoError(err)
 
