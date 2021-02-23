@@ -1689,8 +1689,35 @@ func (v *validator) checkTicketProof(ticket *id.CustomIDTicket, N int,
 	return nil
 }
 
+func (v *validator) checkRegisterDIDTxFee(txn *types.Transaction) error {
+	operation, ok := txn.Payload.(*id.Operation)
+	if !ok {
+		return errors.New("invalid Operation")
+	}
+	feeHelper := v.GetFeeHelper()
+	if feeHelper == nil {
+		return errors.New("feeHelper == nil")
+	}
+
+	txFee, err := feeHelper.GetTxFee(txn, v.GetParams().ElaAssetId)
+	if err != nil {
+		return err
+	}
+	//2. calculate the  fee that one cutomized did tx should paid
+	payload := operation.PayloadInfo
+	buf := new(bytes.Buffer)
+	operation.Serialize(buf, id.DIDInfoVersion)
+	needFee := v.getIDTxFee(payload.ID, payload.Expires, operation.Header.Operation, nil, buf.Len())
+	if txFee < needFee {
+		return errors.New("invalid txFee")
+	}
+
+	//check fee and should paid fee
+	return nil
+}
+
 func (v *validator) checkCustomizedDIDTxFee(txn *types.Transaction) error {
-	customizedDIDPayload, ok := txn.Payload.(*id.CustomizedDIDOperation)
+	payload, ok := txn.Payload.(*id.CustomizedDIDOperation)
 	if !ok {
 		return errors.New("invalid CustomizedDIDOperation")
 	}
@@ -1704,8 +1731,11 @@ func (v *validator) checkCustomizedDIDTxFee(txn *types.Transaction) error {
 		return err
 	}
 	//2. calculate the  fee that one cutomized did tx should paid
-	needFee := v.getCustomizedDIDTxFee(customizedDIDPayload)
-	if txFee <= needFee {
+	doc := payload.Doc
+	buf := new(bytes.Buffer)
+	payload.Serialize(buf, id.CustomizedDIDVersion)
+	needFee := v.getIDTxFee(doc.CustomID, doc.Expires, payload.Header.Operation, doc.Controller, buf.Len())
+	if txFee < needFee {
 		return errors.New("invalid txFee")
 	}
 
@@ -1713,55 +1743,95 @@ func (v *validator) checkCustomizedDIDTxFee(txn *types.Transaction) error {
 	return nil
 }
 
-func getCustomizedDIDLenFactor(customizeDID string) common.Fixed64 {
-	len := len(customizeDID)
-
-	if len == 1 {
+func getCustomizedDIDLenFactor(ID string) float64 {
+	len := len(ID)
+	if len == 0 {
+		return 0.3
+	} else if len == 1 {
 		return 6400
 	} else if len == 2 {
 		return 3200
-	} else if len >= 3 && len <= 32 {
+	} else if len == 3 {
+		return 1200
+	} else if len <= 32 {
 		//100 - [(n-1) / 8 ]
-		return 100 - ((common.Fixed64(len) - 1) / 8)
-	} else if len >= 33 && len <= 64 {
+		return 100 - ((float64(len) - 1) / 8)
+	} else if len <= 64 {
 		//93 + [(n-1) / 8 ]
-		return 93 + ((common.Fixed64(len) - 1) / 8)
+		return 93 + ((float64(len) - 1) / 8)
 	} else {
 		//100 * (n-59) / 3
-		return 100 + ((common.Fixed64(len) - 59) / 3)
+		return 100 * ((float64(len) - 59) / 2)
 	}
 }
 
-func (v *validator) getValidPeriodFactor(Expires string) common.Fixed64 {
+func (v *validator) getValidPeriodFactor(Expires string) float64 {
 
 	expiresTime, _ := time.Parse(time.RFC3339, Expires)
+	days := expiresTime.Day() - v.Chain.MedianTimePast.Day()
+	if days < 180 {
+		expiresTime.Add(180 * 24 * time.Hour)
+	}
 
-	n := common.Fixed64(expiresTime.Year() - v.Chain.MedianTimePast.Year())
-	//todo calculate vailid year, get median time
-	//curMediantime := v.Chain.MedianTimePast
-	//n := curMediantime - Expires
-	//n := common.Fixed64(0)
-	if n <= 0 {
+	years := float64(expiresTime.Year() - v.Chain.MedianTimePast.Year())
+
+	if years <= 0 {
 		return 1
 	}
-	return n * (101 - n) / 100
-}
-
-func getOperationFactor(operation string) common.Fixed64 {
-	if operation == id.Update_Customized_DID_Operation {
-		return 12
+	lifeRate := float64(0)
+	if years < 1 {
+		lifeRate = float64(years * ((100 - 3*math.Log2(1)) / 100))
+	} else {
+		lifeRate = float64(years * ((100 - 3*math.Log2(years)) / 100))
 	}
-	return 10
+	return lifeRate
+
 }
 
-func getControllerFactor(controller interface{}) common.Fixed64 {
+func getOperationFactor(operation string) float64 {
+	factor := float64(0)
+	switch operation {
+	case "CREATE":
+		factor = 1
+	case "UPDATE":
+		factor = 0.8
+	case "TRANSFER":
+		factor = 1.2
+	case "DEACTIVATE":
+		factor = 0.3
+	case "DECLARE":
+		factor = 1
+	case "REVOKE":
+		factor = 0.3
+	default:
+		factor = 1
+	}
+	return factor
+}
+
+func getSizeFactor(payLoadSize int) float64 {
+	factor := float64(0)
+	if payLoadSize <= 1024 {
+		factor = 1
+	} else if payLoadSize <= 32*1024 {
+		factor = math.Log10(float64(payLoadSize/1024))/2 + 1
+	} else {
+		factor = float64(payLoadSize/1024)*0.9*math.Log10(float64(payLoadSize/1024)) - 33.4
+	}
+	return factor
+}
+
+func getControllerFactor(controller interface{}) float64 {
+	if controller == nil {
+		return 0
+	}
 	if controllerArray, bControllerArray := controller.([]interface{}); bControllerArray == true {
 		controllerLen := len(controllerArray)
-		if controllerLen <= 3 {
-			return 1
+		if controllerLen <= 1 {
+			return float64(controllerLen)
 		}
-		//M=2**(m-3)
-		return 2 * (common.Fixed64(controllerLen) - 3)
+		//M=2**(m+3)
+		return 2 * (float64(controllerLen) + 3)
 	}
 	return 1
 
@@ -1774,28 +1844,28 @@ func getControllerLength(controller interface{}) int {
 	return 1
 }
 
-func (v *validator) getCustomizedDIDTxFee(customizedDIDPayload *id.CustomizedDIDOperation) common.Fixed64 {
+//Payload
+//CustomID  Expires Controller Operation Payload interface
+func (v *validator) getIDTxFee(customID, expires, operation string, controller interface{}, payloadLen int) common.Fixed64 {
 	//A id lenght
-	A := getCustomizedDIDLenFactor(customizedDIDPayload.Doc.CustomID)
+	A := getCustomizedDIDLenFactor(customID)
 	//B Valid period
-	B := v.getValidPeriodFactor(customizedDIDPayload.Doc.Expires)
+	B := v.getValidPeriodFactor(expires)
 	//C operation create or update
-	C := getOperationFactor(customizedDIDPayload.Header.Operation)
+	C := getOperationFactor(operation)
 	//M controller sign number
-	M := getControllerFactor(customizedDIDPayload.Doc.Controller)
+	M := getControllerFactor(controller)
 	//E doc size
-	buf := new(bytes.Buffer)
-	customizedDIDPayload.Serialize(buf, id.CustomizedDIDVersion)
-	E := common.Fixed64(buf.Len())
+	E := getSizeFactor(payloadLen)
 	//F factor got from cr proposal
 	F := v.didParam.CustomIDFeeRate
-	feeRate, err := v.spvService.GetRateOfCustomIDFee()
-	if err == nil {
+	feeRate, _ := v.spvService.GetRateOfCustomIDFee()
+	if feeRate != 0 {
 		F = feeRate
 	}
 
-	fee := (A*B*C*M + E) * F
-	return fee
+	fee := (A*B*C*M + E) * float64(F)
+	return common.Fixed64(fee)
 }
 
 func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, mainChainHeight uint32) error {
@@ -1814,7 +1884,7 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 		return err
 	}
 
-	////check txn fee
+	//check txn fee
 	if err := v.checkCustomizedDIDTxFee(txn); err != nil {
 		return err
 	}
@@ -1946,6 +2016,11 @@ func (v *validator) checkRegisterDID(txn *types.Transaction, height uint32, main
 	_, err := time.Parse(time.RFC3339, doc.PayloadInfo.Expires)
 	if err != nil {
 		return errors.New("invalid Expires")
+	}
+
+	//check txn fee
+	if err := v.checkRegisterDIDTxFee(txn); err != nil {
+		return err
 	}
 
 	if err := v.checkDIDOperation(&doc.Header,
