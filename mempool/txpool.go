@@ -101,11 +101,11 @@ func addDeactivateCustomizedDIDTransaction(
 
 func addCustomizedDIDTransactionHash(
 	chain *blockchain.BlockChain, tx *sctype.Transaction) (interface{}, error) {
-	regPayload, ok := tx.Payload.(*types.CustomizedDIDOperation)
+	regPayload, ok := tx.Payload.(*types.DIDPayload)
 	if !ok {
 		return nil, errors.New("convert the payload of register did tx failed")
 	}
-	return regPayload.GetPayloadInfo().CustomID, nil
+	return regPayload.GetPayloadInfo().ID, nil
 }
 
 func addVerifiableCredentialTransaction(

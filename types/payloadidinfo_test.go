@@ -111,7 +111,7 @@ func didHeaderEqual(first *DIDHeaderInfo, second *DIDHeaderInfo) bool {
 		first.Operation == second.Operation
 }
 
-func didProofEqual(first *DIDProofInfo, second *DIDProofInfo) bool {
+func didProofEqual(first *Proof, second *Proof) bool {
 	return first.Type == second.Type &&
 		first.VerificationMethod == second.VerificationMethod &&
 		first.Signature == second.Signature
@@ -183,7 +183,7 @@ func randomPayloadDID() *Operation {
 			Operation:     getRandomOperation(),
 		},
 		Payload: base64url.EncodeToString(didPayloadBytes),
-		Proof: DIDProofInfo{
+		Proof: Proof{
 			Type:               randomString(),
 			VerificationMethod: randomString(),
 			Signature:          randomString(),
@@ -226,7 +226,7 @@ func randomPayloadDIDNoAuth() *Operation {
 			Operation:     getRandomOperation(),
 		},
 		Payload: randomString(),
-		Proof: DIDProofInfo{
+		Proof: Proof{
 			Type:               randomString(),
 			VerificationMethod: randomString(),
 			Signature:          randomString(),
@@ -261,7 +261,7 @@ func randomPayloadDIDAll() *Operation {
 			Operation:     getRandomOperation(),
 		},
 		Payload: randomString(),
-		Proof: DIDProofInfo{
+		Proof: Proof{
 			Type:               randomString(),
 			VerificationMethod: randomString(),
 			Signature:          randomString(),
@@ -294,7 +294,7 @@ func randomPayloadNoContrller() *Operation {
 			Operation:     getRandomOperation(),
 		},
 		Payload: randomString(),
-		Proof: DIDProofInfo{
+		Proof: Proof{
 			Type:               randomString(),
 			VerificationMethod: randomString(),
 			Signature:          randomString(),

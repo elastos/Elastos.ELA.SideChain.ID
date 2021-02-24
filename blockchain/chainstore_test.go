@@ -240,7 +240,7 @@ func getRandomPayloadDid(id string) *types.Operation {
 			Operation:     getRandomOperation(),
 		},
 		Payload: base64url.EncodeToString(data),
-		Proof: types.DIDProofInfo{
+		Proof: types.Proof{
 			Type:               randomString(),
 			VerificationMethod: randomString(),
 			Signature:          randomString(),
@@ -292,7 +292,7 @@ func getPayloadDIDInfo(id string, didOperation string) *types.Operation {
 			Operation:     didOperation,
 		},
 		Payload: hex.EncodeToString(pBytes),
-		Proof: types.DIDProofInfo{
+		Proof: types.Proof{
 			Type:               "ECDSAsecp256r1",
 			VerificationMethod: "did:elastos:" + id,
 		},

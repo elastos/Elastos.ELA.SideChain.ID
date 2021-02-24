@@ -232,7 +232,7 @@ func (s *txValidatorTestSuite) TestIDChainStore_CreateDIDTx() {
 	i, _ := getDIDByPublicKey(data)
 	didAddress, _ := i.ToAddress()
 	fmt.Println("didAddress", didAddress)
-	err := s.validator.checkRegisterDID(tx, 0, 0)
+	err := s.validator.checkDIDTransaction(tx, 0, 0)
 	s.NoError(err)
 
 	info := new(types.Operation)
@@ -244,19 +244,19 @@ func (s *txValidatorTestSuite) TestIDChainStore_CreateDIDTx() {
 	info.PayloadInfo = payloadInfo
 
 	tx.Payload = info
-	err = s.validator.checkRegisterDID(tx, 0, 0)
+	err = s.validator.checkDIDTransaction(tx, 0, 0)
 	s.NoError(err)
 
 	info.PayloadInfo.Expires = "Mon Jan _2 15:04:05 2006"
-	err = s.validator.checkRegisterDID(tx, 0, 0)
+	err = s.validator.checkDIDTransaction(tx, 0, 0)
 	s.Error(err, "invalid Expires")
 
 	info.PayloadInfo.Expires = "2006-01-02T15:04:05Z07:00"
-	err = s.validator.checkRegisterDID(tx, 0, 0)
+	err = s.validator.checkDIDTransaction(tx, 0, 0)
 	s.Error(err, "invalid Expires")
 
 	info.PayloadInfo.Expires = "2018-06-30T12:00:00Z"
-	err = s.validator.checkRegisterDID(tx, 0, 0)
+	err = s.validator.checkDIDTransaction(tx, 0, 0)
 	s.NoError(err)
 
 	info = new(types.Operation)
@@ -268,7 +268,7 @@ func (s *txValidatorTestSuite) TestIDChainStore_CreateDIDTx() {
 	info.PayloadInfo = payloadInfo
 
 	tx.Payload = info
-	err = s.validator.checkRegisterDID(tx, 0, 0)
+	err = s.validator.checkDIDTransaction(tx, 0, 0)
 	s.Error(err, "invalid Expires")
 }
 
@@ -358,7 +358,7 @@ func getPayloadCreateDID() *types.Operation {
 			Operation:     "create",
 		},
 		Payload: base64url.EncodeToString(didPayloadBytes),
-		Proof: types.DIDProofInfo{
+		Proof: types.Proof{
 			Type:               "ECDSAsecp256r1",
 			VerificationMethod: "did:elastos:icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN#default",
 		},
@@ -381,7 +381,7 @@ func getPayloadDeactivateDID(did, verifDid string) *types.DeactivateDIDOptPayloa
 			Operation:     "create",
 		},
 		Payload: did,
-		Proof: types.DIDProofInfo{
+		Proof: types.Proof{
 			Type:               "ECDSAsecp256r1",
 			VerificationMethod: verifDid,
 		},
@@ -403,7 +403,7 @@ func getPayloadUpdateDID() *types.Operation {
 			Operation:     "update",
 		},
 		Payload: base64url.EncodeToString(didPayloadBytes),
-		Proof: types.DIDProofInfo{
+		Proof: types.Proof{
 			Type:               randomString(),
 			VerificationMethod: randomString(),
 			Signature:          randomString(),
@@ -428,7 +428,7 @@ func getPayloadDIDInfo(id string, didOperation string, docBytes []byte, privateK
 			Operation:     didOperation,
 		},
 		Payload: base64url.EncodeToString(docBytes),
-		Proof: types.DIDProofInfo{
+		Proof: types.Proof{
 			Type:               "ECDSAsecp256r1",
 			VerificationMethod: "did:elastos:" + id + "#primary", //primary
 		},
@@ -441,22 +441,22 @@ func getPayloadDIDInfo(id string, didOperation string, docBytes []byte, privateK
 }
 
 func getCustomizedDIDPayloadInfo(id string, didOperation string, docBytes []byte,
-	privateKeyStr string) *types.CustomizedDIDOperation {
+	privateKeyStr string) *types.DIDPayload {
 	//pBytes := getDIDPayloadBytes(id)
-	info := new(types.CustomizedDIDPayload)
+	info := new(types.DIDDoc)
 	json.Unmarshal(docBytes, info)
 
-	p := &types.CustomizedDIDOperation{
-		Header: types.CustomizedDIDHeaderInfo{
+	p := &types.DIDPayload{
+		Header: types.Header{
 			Specification: "elastos/did/1.0",
 			Operation:     didOperation,
 		},
 		Payload: base64url.EncodeToString(docBytes),
-		Proof: types.DIDProofInfo{
+		Proof: types.Proof{
 			Type:               "ECDSAsecp256r1",
 			VerificationMethod: "did:elastos:" + id + "#primary",
 		},
-		Doc: info,
+		DIDDoc: info,
 	}
 	privateKey1 := base58.Decode(privateKeyStr)
 	sign, _ := crypto.Sign(privateKey1, p.GetData())
@@ -465,21 +465,21 @@ func getCustomizedDIDPayloadInfo(id string, didOperation string, docBytes []byte
 }
 
 func getCustomizedDIDPayloadInfoMultiSign(id1, id2 string, didOperation string, docBytes []byte,
-	privateKeyStr1, privateKeyStr2 string) *types.CustomizedDIDOperation {
+	privateKeyStr1, privateKeyStr2 string) *types.DIDPayload {
 	//pBytes := getDIDPayloadBytes(id)
-	info := new(types.CustomizedDIDPayload)
+	info := new(types.DIDDoc)
 	json.Unmarshal(docBytes, info)
 
-	//var Proofs []*types.DIDProofInfo
-	p := &types.CustomizedDIDOperation{
-		Header: types.CustomizedDIDHeaderInfo{
+	//var Proofs []*types.Proof
+	p := &types.DIDPayload{
+		Header: types.Header{
 			Specification: "elastos/did/1.0",
 			Operation:     didOperation,
 		},
 		Payload: base64url.EncodeToString(docBytes),
-		Doc:     info,
+		DIDDoc:  info,
 	}
-	proof1 := &types.DIDProofInfo{
+	proof1 := &types.Proof{
 		Type:               "ECDSAsecp256r1",
 		VerificationMethod: "did:elastos:" + id1 + "#primary",
 	}
@@ -575,7 +575,7 @@ func (s *txValidatorTestSuite) TestGenrateTxFromRawTxStr() {
 		return
 	}
 	s.validator.didParam.CustomIDFeeRate = 0
-	s.validator.checkRegisterDID(&tx, 0, 0)
+	s.validator.checkDIDTransaction(&tx, 0, 0)
 }
 
 //didOperation must be create or update
@@ -600,19 +600,19 @@ func getCustomizedDIDTx(id, didOperation string, docBytes []byte, privateKeyStr 
 
 func getDeactivateCustomizedDIDPayload(customizedDID, verifiacationDID string, privateKeyStr string) *types.DeactivateCustomizedDIDPayload {
 	p := &types.DeactivateCustomizedDIDPayload{
-		Header: types.CustomizedDIDHeaderInfo{
+		Header: types.Header{
 			Specification: "elastos/did/1.0",
 			Operation:     "",
 		},
 		Payload: customizedDID,
-		Proof: &types.DIDProofInfo{
+		Proof: &types.Proof{
 			Type:               "ECDSAsecp256r1",
 			VerificationMethod: "did:elastos:" + verifiacationDID + "#primary",
 		},
 	}
 	privateKey1 := base58.Decode(privateKeyStr)
 	sign, _ := crypto.Sign(privateKey1, p.GetData())
-	p.Proof.(*types.DIDProofInfo).Signature = base64url.EncodeToString(sign)
+	p.Proof.(*types.Proof).Signature = base64url.EncodeToString(sign)
 
 	publickey := base58.Decode("2BhWFosWHCKtBQpsPD3QZUY4NwCzavKdZEh6HfQDhciAY")
 	pubkey, err := crypto.DecodePoint(publickey)
@@ -654,7 +654,7 @@ func getDIDVerifiableCredentialPayload(id string, didOperation string, docBytes 
 			Operation:     didOperation,
 		},
 		Payload: base64url.EncodeToString(docBytes),
-		Proof: &types.DIDProofInfo{
+		Proof: &types.Proof{
 			Type:               "ECDSAsecp256r1",
 			VerificationMethod: "did:elastos:" + id + "#primary",
 		},
@@ -662,7 +662,7 @@ func getDIDVerifiableCredentialPayload(id string, didOperation string, docBytes 
 	}
 	privateKey1 := base58.Decode(privateKeyStr)
 	sign, _ := crypto.Sign(privateKey1, p.GetData())
-	p.Proof.(*types.DIDProofInfo).Signature = base64url.EncodeToString(sign)
+	p.Proof.(*types.Proof).Signature = base64url.EncodeToString(sign)
 	return p
 }
 
@@ -685,11 +685,11 @@ func (s *txValidatorTestSuite) TestSelfProclaimedCredential() {
 
 	//id3DocBytes
 	tx3 := getDIDTx(id3, "create", id3DocByts, privateKey3Str)
-	err3 := s.validator.checkRegisterDID(tx3, 0, 0)
+	err3 := s.validator.checkDIDTransaction(tx3, 0, 0)
 	s.NoError(err3)
 
 	tx3_2 := getDIDTx(id3, "create", id2DocByts, privateKey3Str)
-	err3_2 := s.validator.checkRegisterDID(tx3_2, 0, 0)
+	err3_2 := s.validator.checkDIDTransaction(tx3_2, 0, 0)
 	s.NoError(err3_2)
 
 }
@@ -711,7 +711,7 @@ func (s *txValidatorTestSuite) TestCheckRegisterDID() {
 	batch.Commit()
 
 	s.validator.didParam.CustomIDFeeRate = 0
-	err2 := s.validator.checkRegisterDID(tx1, 0, 0)
+	err2 := s.validator.checkDIDTransaction(tx1, 0, 0)
 	s.NoError(err2)
 }
 
@@ -961,7 +961,7 @@ func getCustomizedDIDVerifiableCredPayloadContollers(id1, id2 string, didOperati
 	json.Unmarshal(docBytes, info)
 	fmt.Println("getCustomizedDIDPayloadInfoMultiSign " + string(docBytes))
 
-	var Proofs []*types.DIDProofInfo
+	var Proofs []*types.Proof
 	p := &types.VerifiableCredentialPayload{
 		Header: types.VerifiableCredentialHeaderInfo{
 			Specification: "elastos/did/1.0",
@@ -970,7 +970,7 @@ func getCustomizedDIDVerifiableCredPayloadContollers(id1, id2 string, didOperati
 		Payload: base64url.EncodeToString(docBytes),
 		Doc:     info,
 	}
-	proof1 := &types.DIDProofInfo{
+	proof1 := &types.Proof{
 		Type:               "ECDSAsecp256r1",
 		VerificationMethod: "did:elastos:" + id1 + "#primary",
 	}
@@ -979,7 +979,7 @@ func getCustomizedDIDVerifiableCredPayloadContollers(id1, id2 string, didOperati
 	proof1.Signature = base64url.EncodeToString(sign)
 	Proofs = append(Proofs, proof1)
 
-	proof2 := &types.DIDProofInfo{
+	proof2 := &types.Proof{
 		Type:               "ECDSAsecp256r1",
 		VerificationMethod: "did:elastos:" + id2 + "#primary",
 	}
@@ -1008,7 +1008,7 @@ func (s *txValidatorTestSuite) TestHeaderPayloadDIDTX() {
 	txn := new(types2.Transaction)
 	txn.TxType = types.RegisterDID
 	txn.Payload = operation
-	err2 := s.validator.checkRegisterDID(txn, 0, 0)
+	err2 := s.validator.checkDIDTransaction(txn, 0, 0)
 	s.NoError(err2)
 	fmt.Println("TestHeaderPayloadDIDTX end")
 }
