@@ -126,7 +126,7 @@ type RpcPayloadDIDInfo struct {
 type RpcOperation struct {
 	Header  id.DIDHeaderInfo `json:"header"`
 	Payload string           `json:"payload"`
-	Proof   id.DIDProofInfo  `json:"proof"`
+	Proof   id.Proof         `json:"proof"`
 }
 
 type RpcTranasactionData struct {
@@ -255,7 +255,7 @@ func (s *HttpService) ResolveCredential(param http.Params) (interface{}, error) 
 			isRevokeTransaction = true
 		}
 
-		signer := txData.Operation.Proof.(*id.InnerDIDProofInfo).VerificationMethod
+		signer := txData.Operation.Proof.(*id.CredentialProof).VerificationMethod
 		if isRevokeTransaction && issuerID == "" && signer == txData.Operation.Doc.Issuer {
 			continue
 		}

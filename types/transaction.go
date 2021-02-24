@@ -58,7 +58,7 @@ func init() {
 		case DeactivateCustomizedDIDTxType:
 			return &DeactivateCustomizedDIDPayload{}, nil
 		case CustomizedDID:
-			return &CustomizedDIDOperation{}, nil
+			return &DIDPayload{}, nil
 		case VerifiableCredentialTxType:
 			return &VerifiableCredentialPayload{}, nil
 		}
