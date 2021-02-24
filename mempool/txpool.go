@@ -2,7 +2,6 @@ package mempool
 
 import (
 	"errors"
-
 	"github.com/elastos/Elastos.ELA.SideChain.ID/types"
 	"github.com/elastos/Elastos.ELA.SideChain/blockchain"
 	memp "github.com/elastos/Elastos.ELA.SideChain/mempool"
@@ -21,98 +20,36 @@ func New(cfg *memp.Config) *memp.TxPool {
 		Name: SlotRegisterDID,
 		Slot: memp.NewConflictSlot(memp.Str,
 			memp.KeyTypeFuncPair{
-				Type: types.RegisterDID,
-				Func: addRegisterDIDTransactionHash,
-			},
-		),
-	})
-	txPool.AddConflictSlot(&memp.Conflict{
-		Name: SlotDeactivateDID,
-		Slot: memp.NewConflictSlot(memp.Str,
-			memp.KeyTypeFuncPair{
-				Type: types.DeactivateDID,
-				Func: addDeactivateDIDTransactionHash,
-			},
-		),
-	})
-	txPool.AddConflictSlot(&memp.Conflict{
-		Name: SlotDeactivateCustomizedDID,
-		Slot: memp.NewConflictSlot(memp.Str,
-			memp.KeyTypeFuncPair{
-				Type: types.DeactivateCustomizedDIDTxType,
-				Func: addDeactivateCustomizedDIDTransaction,
-			},
-		),
-	})
-	txPool.AddConflictSlot(&memp.Conflict{
-		Name: SlotCustomizedDID,
-		Slot: memp.NewConflictSlot(memp.Str,
-			memp.KeyTypeFuncPair{
-				Type: types.CustomizedDID,
-				Func: addCustomizedDIDTransactionHash,
-			},
-		),
-	})
-	txPool.AddConflictSlot(&memp.Conflict{
-		Name: SlotVerifiableCredential,
-		Slot: memp.NewConflictSlot(memp.Str,
-			memp.KeyTypeFuncPair{
-				Type: types.VerifiableCredentialTxType,
-				Func: addVerifiableCredentialTransaction,
+				Type: types.DIDOperation,
+				Func: checkDIDTransaction,
 			},
 		),
 	})
 	return txPool
 }
 
-func addRegisterDIDTransactionHash(
-	chain *blockchain.BlockChain, tx *sctype.Transaction) (interface{}, error) {
-	regPayload, ok := tx.Payload.(*types.Operation)
+func checkDIDTransaction(chain *blockchain.BlockChain, tx *sctype.Transaction) (interface{}, error) {
+	p, ok := tx.Payload.(*types.DIDPayload)
 	if !ok {
 		return nil, errors.New("convert the payload of register did tx failed")
 	}
-	return regPayload.PayloadInfo.ID, nil
-}
 
-//
-func addDeactivateDIDTransactionHash(
-	chain *blockchain.BlockChain, tx *sctype.Transaction) (interface{}, error) {
-	deactivateDIDPayload, ok := tx.Payload.(*types.DeactivateDIDOptPayload)
-	if !ok {
-		return nil, errors.New("convert the payload of DeactivateDIDOpt tx failed")
-	}
-	var did string
-	if types.IsURIHasPrefix(deactivateDIDPayload.Payload) {
-		did = types.GetDIDFromUri(deactivateDIDPayload.Payload)
-	} else {
-		did = deactivateDIDPayload.Payload
-	}
-	return did, nil
-}
+	switch p.Header.Operation {
+	case types.Create_DID_Operation, types.Update_DID_Operation, types.Transfer_DID_Operation:
+		return p.DIDDoc.ID, nil
 
-func addDeactivateCustomizedDIDTransaction(
-	chain *blockchain.BlockChain, tx *sctype.Transaction) (interface{}, error) {
-	deactivateCustomizedDIDPayload, ok := tx.Payload.(*types.DeactivateCustomizedDIDPayload)
-	if !ok {
-		return nil, errors.New("convert the payload of deactivateCustomizedDIDPayload tx failed")
-	}
-	return deactivateCustomizedDIDPayload.Payload, nil
-}
+	case types.Deactivate_DID_Operation:
+		var did string
+		if types.IsURIHasPrefix(p.Payload) {
+			did = types.GetDIDFromUri(p.Payload)
+		} else {
+			did = p.Payload
+		}
+		return did, nil
 
-func addCustomizedDIDTransactionHash(
-	chain *blockchain.BlockChain, tx *sctype.Transaction) (interface{}, error) {
-	regPayload, ok := tx.Payload.(*types.DIDPayload)
-	if !ok {
-		return nil, errors.New("convert the payload of register did tx failed")
+	case types.Declare_Verifiable_Credential_Operation, types.Revoke_Verifiable_Credential_Operation:
+		return p.CredentialDoc.ID, nil
 	}
-	return regPayload.GetPayloadInfo().ID, nil
-}
 
-func addVerifiableCredentialTransaction(
-	chain *blockchain.BlockChain, tx *sctype.Transaction) (interface{}, error) {
-	regPayload, ok := tx.Payload.(*types.VerifiableCredentialPayload)
-	if !ok {
-		return nil, errors.New("convert the payload of register did tx failed")
-	}
-	return regPayload.Doc.ID, nil
+	return nil, errors.New("invalid operation")
 }

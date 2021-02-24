@@ -45,11 +45,11 @@ var didPayloadBytes = []byte(
         "expires" : "2023-02-10T17:00:00Z"
 	}`)
 
-func isOperationEqual(operation1, operation2 types.Operation) bool {
+func isOperationEqual(operation1, operation2 types.DIDPayload) bool {
 	buf1 := new(bytes.Buffer)
-	operation1.Serialize(buf1, types.DIDInfoVersion)
+	operation1.Serialize(buf1, types.DIDVersion)
 	buf2 := new(bytes.Buffer)
-	operation2.Serialize(buf2, types.DIDInfoVersion)
+	operation2.Serialize(buf2, types.DIDVersion)
 	return bytes.Equal(buf2.Bytes(), buf1.Bytes())
 }
 
@@ -72,12 +72,12 @@ func TestIDChainStore_PersistDIDTx(t *testing.T) {
 
 	// prepare data for test
 	regPayload1 := getRandomPayloadDid(ID1)
-	var txData1, txData2, txData3 types.TranasactionData
+	var txData1, txData2, txData3 types.DIDTransactionData
 	txData1.Operation = *regPayload1
 	buf1 := new(bytes.Buffer)
-	regPayload1.Serialize(buf1, types.DIDInfoVersion)
+	regPayload1.Serialize(buf1, types.DIDVersion)
 
-	id1 := []byte(idChainStore.GetDIDFromUri(regPayload1.PayloadInfo.ID))
+	id1 := []byte(idChainStore.GetDIDFromUri(regPayload1.DIDDoc.ID))
 	tx1 := &stype.Transaction{
 		Payload: regPayload1,
 	}
@@ -86,8 +86,8 @@ func TestIDChainStore_PersistDIDTx(t *testing.T) {
 	txData2.Operation = *regPayload2
 
 	buf2 := new(bytes.Buffer)
-	regPayload2.Serialize(buf2, types.DIDInfoVersion)
-	id2 := []byte(idChainStore.GetDIDFromUri(regPayload2.PayloadInfo.ID))
+	regPayload2.Serialize(buf2, types.DIDVersion)
+	id2 := []byte(idChainStore.GetDIDFromUri(regPayload2.DIDDoc.ID))
 	tx2 := &stype.Transaction{
 		Payload: regPayload2,
 	}
@@ -96,8 +96,8 @@ func TestIDChainStore_PersistDIDTx(t *testing.T) {
 	txData3.Operation = *regPayload3
 
 	buf3 := new(bytes.Buffer)
-	regPayload3.Serialize(buf3, types.DIDInfoVersion)
-	regPayload3.PayloadInfo.ID = regPayload2.PayloadInfo.ID
+	regPayload3.Serialize(buf3, types.DIDVersion)
+	regPayload3.DIDDoc.ID = regPayload2.DIDDoc.ID
 	tx3 := &stype.Transaction{
 		Payload: regPayload3,
 	}
@@ -120,8 +120,8 @@ func TestIDChainStore_PersistDIDTx(t *testing.T) {
 	assert.True(t, isOperationEqual(txs[0].Operation, txData1.Operation))
 
 	height, err := idChainStore.GetExpiresHeight(id1)
-	operation, _ := tx1.Payload.(*types.Operation)
-	targetExpHeight, _ := idChainStore.TryGetExpiresHeight(operation.PayloadInfo.Expires, blockHeight1, blockTimeStamp1)
+	operation, _ := tx1.Payload.(*types.DIDPayload)
+	targetExpHeight, _ := idChainStore.TryGetExpiresHeight(operation.DIDDoc.Expires, blockHeight1, blockTimeStamp1)
 	assert.True(t, err == nil)
 	assert.Equal(t, targetExpHeight, height)
 
@@ -140,9 +140,9 @@ func TestIDChainStore_PersistDIDTx(t *testing.T) {
 	assert.True(t, isOperationEqual(p2.Operation, txData2.Operation))
 
 	height2, err := idChainStore.GetExpiresHeight(id2)
-	operation2, _ := tx2.Payload.(*types.Operation)
+	operation2, _ := tx2.Payload.(*types.DIDPayload)
 
-	targetExpHeight2, _ := idChainStore.TryGetExpiresHeight(operation2.PayloadInfo.Expires, blockHeight2, blockTimeStamp2)
+	targetExpHeight2, _ := idChainStore.TryGetExpiresHeight(operation2.DIDDoc.Expires, blockHeight2, blockTimeStamp2)
 	assert.True(t, err == nil)
 	assert.Equal(t, targetExpHeight2, height2)
 
@@ -153,7 +153,7 @@ func TestIDChainStore_PersistDIDTx(t *testing.T) {
 	batch.Commit()
 
 	height3, err := idChainStore.GetExpiresHeight(id2)
-	targetExpHeight3, _ := idChainStore.TryGetExpiresHeight(operation2.PayloadInfo.Expires, blockHeight3, blockTimeStamp3)
+	targetExpHeight3, _ := idChainStore.TryGetExpiresHeight(operation2.DIDDoc.Expires, blockHeight3, blockTimeStamp3)
 	assert.True(t, err == nil)
 	assert.Equal(t, targetExpHeight3, height3)
 
@@ -227,15 +227,15 @@ func randomString() string {
 	return common.BytesToHexString(a)
 }
 
-func getRandomPayloadDid(id string) *types.Operation {
-	info := new(types.DIDPayloadInfo)
+func getRandomPayloadDid(id string) *types.DIDPayload {
+	info := new(types.DIDDoc)
 	json.Unmarshal(didPayloadBytes, info)
 	info.ID = id
 	info.Expires = getFourYearAfterUTCString()
 	data, _ := json.Marshal(info)
 
-	return &types.Operation{
-		Header: types.DIDHeaderInfo{
+	return &types.DIDPayload{
+		Header: types.Header{
 			Specification: "elastos/did/1.0",
 			Operation:     getRandomOperation(),
 		},
@@ -245,7 +245,7 @@ func getRandomPayloadDid(id string) *types.Operation {
 			VerificationMethod: randomString(),
 			Signature:          randomString(),
 		},
-		PayloadInfo: info,
+		DIDDoc: info,
 	}
 }
 
@@ -282,12 +282,12 @@ func getDIDPayloadBytes(id string) []byte {
 	)
 }
 
-func getPayloadDIDInfo(id string, didOperation string) *types.Operation {
+func getPayloadDIDInfo(id string, didOperation string) *types.DIDPayload {
 	pBytes := getDIDPayloadBytes(id)
-	info := new(types.DIDPayloadInfo)
+	info := new(types.DIDDoc)
 	json.Unmarshal(pBytes, info)
-	p := &types.Operation{
-		Header: types.DIDHeaderInfo{
+	p := &types.DIDPayload{
+		Header: types.Header{
 			Specification: "elastos/did/1.0",
 			Operation:     didOperation,
 		},
@@ -296,7 +296,7 @@ func getPayloadDIDInfo(id string, didOperation string) *types.Operation {
 			Type:               "ECDSAsecp256r1",
 			VerificationMethod: "did:elastos:" + id,
 		},
-		PayloadInfo: info,
+		DIDDoc: info,
 	}
 	return p
 }
@@ -305,12 +305,12 @@ func getPayloadDIDInfo(id string, didOperation string) *types.Operation {
 func getDIDTx(id, didOperation string) *stype.Transaction {
 	payloadDidInfo := getPayloadDIDInfo(id, didOperation)
 	txn := new(stype.Transaction)
-	txn.TxType = types.RegisterDID
+	txn.TxType = types.DIDOperation
 	txn.Payload = payloadDidInfo
 	return txn
 }
 
-func didPayloadEqual(first *types.DIDPayloadInfo, second *types.DIDPayloadInfo) bool {
+func didPayloadEqual(first *types.DIDDoc, second *types.DIDDoc) bool {
 	return first.ID == second.ID &&
 		didPublicKeysEqual(first.PublicKey, second.PublicKey) &&
 		didAuthEqual(first.Authentication, second.Authentication) &&

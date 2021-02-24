@@ -5,10 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/elastos/Elastos.ELA.SideChain.ID/didjson"
-	"io"
-
 	"github.com/elastos/Elastos.ELA.SideChain.ID/types/base64url"
 	"github.com/elastos/Elastos.ELA/common"
+	"io"
 )
 
 const DIDVersion = 0x00
@@ -19,9 +18,9 @@ const (
 	Create_DID_Operation                    = "create"
 	Update_DID_Operation                    = "update"
 	Transfer_DID_Operation                  = "transfer"
+	Deactivate_DID_Operation                = "deactivate"
 	Declare_Verifiable_Credential_Operation = "declare"
 	Revoke_Verifiable_Credential_Operation  = "revoke"
-	Deactivate_Customized_DID_Operation     = "deactivate"
 	DID_ELASTOS_PREFIX                      = "did:elastos:"
 	ID_STRING                               = "id"
 )
@@ -30,8 +29,7 @@ const (
 type DIDPayload struct {
 	Header  Header `json:"header"`
 	Payload string `json:"payload"`
-	// Proof
-	Proof Proof `json:"proof"`
+	Proof   Proof  `json:"proof"`
 
 	DIDDoc        *DIDDoc
 	CredentialDoc *VerifiableCredentialDoc
@@ -44,13 +42,13 @@ type DIDTransactionData struct {
 	Operation DIDPayload `json:"operation"`
 }
 
-func (p *DIDPayload) GetPayloadInfo() *DIDDoc {
+func (p *DIDPayload) GetDIDDoc() *DIDDoc {
 	return p.DIDDoc
 }
 
 func (p *DIDPayload) Data(version byte) []byte {
 	switch p.Header.Operation {
-	case Create_DID_Operation, Update_DID_Operation, Transfer_DID_Operation, Deactivate_Customized_DID_Operation:
+	case Create_DID_Operation, Update_DID_Operation, Transfer_DID_Operation, Deactivate_DID_Operation:
 		buf := new(bytes.Buffer)
 		if err := p.Header.Serialize(buf, version); err != nil {
 			return nil
@@ -106,17 +104,17 @@ func (p *DIDPayload) Deserialize(r io.Reader, version byte) error {
 
 	// get ticket from header.ticket
 	switch p.Header.Operation {
-	case Create_DID_Operation, Update_DID_Operation, Deactivate_Customized_DID_Operation:
-		// get DIDPayloadInfo from payload data
+	case Create_DID_Operation, Update_DID_Operation, Deactivate_DID_Operation:
+		// get DIDDIDDoc from payload data
 		pBytes, err := base64url.DecodeString(p.Payload)
 		if err != nil {
 			return errors.New("[DIDPayload], payload decode failed")
 		}
-		payloadInfo := new(DIDDoc)
-		if err := json.Unmarshal(pBytes, payloadInfo); err != nil {
+		DIDDoc := new(DIDDoc)
+		if err := json.Unmarshal(pBytes, DIDDoc); err != nil {
 			return errors.New("[DIDPayload], payload unmarshal failed")
 		}
-		p.DIDDoc = payloadInfo
+		p.DIDDoc = DIDDoc
 	case Transfer_DID_Operation:
 		tBytes, err := base64url.DecodeString(p.Header.Ticket)
 		if err != nil {
@@ -128,7 +126,7 @@ func (p *DIDPayload) Deserialize(r io.Reader, version byte) error {
 		}
 		p.Ticket = ticket
 	case Declare_Verifiable_Credential_Operation, Revoke_Verifiable_Credential_Operation:
-		// get DIDPayloadInfo from payload data
+		// get DIDDIDDoc from payload data
 		pBytes, err := base64url.DecodeString(p.Payload)
 		if err != nil {
 			return errors.New("[VerifiableCredentialPayload], payload decode failed")
@@ -150,7 +148,7 @@ func (p *DIDPayload) GetData() []byte {
 		dataString = p.Header.Specification + p.Header.Operation + p.Header.
 			PreviousTxid + p.Payload
 
-	case Create_DID_Operation, Transfer_DID_Operation, Deactivate_Customized_DID_Operation:
+	case Create_DID_Operation, Transfer_DID_Operation, Deactivate_DID_Operation:
 		dataString = p.Header.Specification + p.Header.Operation + p.Payload
 
 	case Declare_Verifiable_Credential_Operation, Revoke_Verifiable_Credential_Operation:

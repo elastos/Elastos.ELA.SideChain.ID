@@ -81,57 +81,40 @@ func (c *IDChainStore) persistTransactions(batch database.Batch, b *types.Block)
 					return err
 				}
 			}
-		case id.RegisterDID:
-			regPayload := txn.Payload.(*id.Operation)
+		case id.DIDOperation:
+			p := txn.Payload.(*id.DIDPayload)
 
-			id := c.GetDIDFromUri(regPayload.PayloadInfo.ID)
-			if id == "" {
-				return errors.New("invalid regPayload.DIDDoc.ID")
-			}
-			if err := c.persistRegisterDIDTx(batch, []byte(id),
-				txn, b.GetHeight(), b.GetTimeStamp()); err != nil {
-				return err
-			}
-		case id.DeactivateDID:
-			deactivateDIDOpt := txn.Payload.(*id.DeactivateDIDOptPayload)
-			id := c.GetDIDFromUri(deactivateDIDOpt.Payload)
-			if id == "" {
-				return errors.New("invalid deactivate DID")
-			}
-			if err := c.persistDeactivateDIDTx(batch, []byte(id)); err != nil {
-				return err
-			}
-		case id.DeactivateCustomizedDIDTxType:
-			deactivateCustomizedDIDPayload := txn.Payload.(*id.DeactivateCustomizedDIDPayload)
-			id := deactivateCustomizedDIDPayload.Payload
-			if id == "" {
-				return errors.New("invalid CustomizedDID ")
-			}
-			if err := c.persistDeactivateCustomizedDIDTx(batch, []byte(id)); err != nil {
-				return err
-			}
-		case id.CustomizedDID:
-			regPayload := txn.Payload.(*id.DIDPayload)
+			switch p.Header.Operation {
+			case id.Create_DID_Operation, id.Update_DID_Operation, id.Transfer_DID_Operation:
+				id := c.GetDIDFromUri(p.DIDDoc.ID)
+				if id == "" {
+					return errors.New("invalid p.DIDDoc.ID")
+				}
+				if err := c.persistRegisterDIDTx(batch, []byte(id),
+					txn, b.GetHeight(), b.GetTimeStamp()); err != nil {
+					return err
+				}
 
-			id := regPayload.GetPayloadInfo().ID
-			if id == "" {
-				return errors.New("invalid regPayload.DIDDoc.ID")
-			}
-			if err := c.persistCustomizedDIDTx(batch, []byte(id),
-				txn, b.GetHeight(), b.GetTimeStamp()); err != nil {
-				return err
-			}
-		case id.VerifiableCredentialTxType:
-			verifyCredPayload := txn.Payload.(*id.VerifiableCredentialPayload)
+			case id.Deactivate_DID_Operation:
+				id := c.GetDIDFromUri(p.Payload)
+				if id == "" {
+					return errors.New("invalid deactivate DID")
+				}
+				if err := c.persistDeactivateDIDTx(batch, []byte(id)); err != nil {
+					return err
+				}
 
-			id := verifyCredPayload.Doc.ID
-			if id == "" {
-				return errors.New("invalid regPayload.DIDDoc.ID")
+			case id.Declare_Verifiable_Credential_Operation, id.Revoke_Verifiable_Credential_Operation:
+				id := p.CredentialDoc.ID
+				if id == "" {
+					return errors.New("invalid p.CredentialDoc.ID")
+				}
+				if err := c.persistVerifiableCredentialTx(batch, []byte(id),
+					txn, b.GetHeight(), b.GetTimeStamp()); err != nil {
+					return err
+				}
 			}
-			if err := c.persistVerifiableCredentialTx(batch, []byte(id),
-				txn, b.GetHeight(), b.GetTimeStamp()); err != nil {
-				return err
-			}
+
 		}
 	}
 	return nil
@@ -174,54 +157,37 @@ func (c *IDChainStore) rollbackTransactions(batch database.Batch, b *types.Block
 					return err
 				}
 			}
-		case id.RegisterDID:
-			regPayload := txn.Payload.(*id.Operation)
-			id := c.GetDIDFromUri(regPayload.PayloadInfo.ID)
-			if id == "" {
-				return errors.New("invalid regPayload.DIDDoc.ID")
-			}
-			if err := c.rollbackRegisterDIDTx(batch, []byte(id), txn); err != nil {
-				return err
-			}
-		case id.CustomizedDID:
-			regPayload := txn.Payload.(*id.DIDPayload)
-			id := regPayload.GetPayloadInfo().ID
-			if id == "" {
-				return errors.New("invalid regPayload.DIDDoc.ID")
-			}
-			if err := c.rollbackCustomizedDIDTx(batch, []byte(id), txn); err != nil {
-				return err
-			}
-		case id.VerifiableCredentialTxType:
-			verifiableCredential := txn.Payload.(*id.VerifiableCredentialPayload)
-			id := verifiableCredential.Doc.ID
-			if id == "" {
-				return errors.New("verifiableCredential.DIDDoc.ID")
-			}
-			if err := c.rollbackVerifiableCredentialTx(batch, []byte(id), txn); err != nil {
-				return err
-			}
-		case id.DeactivateDID:
-			deactivateDID := txn.Payload.(*id.DeactivateDIDOptPayload)
-			id := c.GetDIDFromUri(deactivateDID.Payload)
-			if id == "" {
-				return errors.New("invalid deactivateDID.Payload")
-			}
-			if err := c.rollbackDeactivateDIDTx(batch, []byte(id), txn); err != nil {
-				return err
-			}
-		case id.DeactivateCustomizedDIDTxType:
-			deactivateCustomizedDID := txn.Payload.(*id.DeactivateCustomizedDIDPayload)
-			customizeDID := deactivateCustomizedDID.Payload
-			if customizeDID == "" {
-				return errors.New("invalid deactivateCustomizedDID.Payload")
-			}
-			if err := c.rollbackDeactivateCustomizedDIDTx(batch, []byte(customizeDID), txn); err != nil {
-				return err
-			}
+		case id.DIDOperation:
+			p := txn.Payload.(*id.DIDPayload)
 
+			switch p.Header.Operation {
+			case id.Create_DID_Operation, id.Update_DID_Operation, id.Transfer_DID_Operation:
+				regPayload := txn.Payload.(*id.DIDPayload)
+				id := c.GetDIDFromUri(regPayload.DIDDoc.ID)
+				if id == "" {
+					return errors.New("invalid regPayload.DIDDoc.ID")
+				}
+				if err := c.rollbackRegisterDIDTx(batch, []byte(id), txn); err != nil {
+					return err
+				}
+			case id.Deactivate_DID_Operation:
+				id := c.GetDIDFromUri(p.Payload)
+				if id == "" {
+					return errors.New("invalid deactivateDID.Payload")
+				}
+				if err := c.rollbackDeactivateDIDTx(batch, []byte(id), txn); err != nil {
+					return err
+				}
+			case id.Declare_Verifiable_Credential_Operation, id.Revoke_Verifiable_Credential_Operation:
+				id := p.CredentialDoc.ID
+				if id == "" {
+					return errors.New("verifiableCredential.DIDDoc.ID")
+				}
+				if err := c.rollbackVerifiableCredentialTx(batch, []byte(id), txn); err != nil {
+					return err
+				}
+			}
 		}
-
 	}
 
 	return nil
@@ -276,11 +242,11 @@ func (c *IDChainStore) TryGetExpiresHeight(Expires string, blockHeight uint32, b
 func (c *IDChainStore) persistRegisterDIDTx(batch database.Batch,
 	idKey []byte, tx *types.Transaction, blockHeight uint32,
 	blockTimeStamp uint32) error {
-	operation, ok := tx.Payload.(*id.Operation)
+	operation, ok := tx.Payload.(*id.DIDPayload)
 	if !ok {
 		return errors.New("persistRegisterDIDTx invalid Operation")
 	}
-	expiresHeight, err := c.TryGetExpiresHeight(operation.PayloadInfo.Expires, blockHeight, blockTimeStamp)
+	expiresHeight, err := c.TryGetExpiresHeight(operation.DIDDoc.Expires, blockHeight, blockTimeStamp)
 	if err != nil {
 		return err
 	}
@@ -293,9 +259,11 @@ func (c *IDChainStore) persistRegisterDIDTx(batch database.Batch,
 	}
 
 	if err := c.persistRegisterDIDPayload(batch, tx.Hash(),
-		tx.Payload.(*id.Operation)); err != nil {
+		tx.Payload.(*id.DIDPayload)); err != nil {
 		return err
 	}
+
+	// todo save IsDID or IsCustomDID
 
 	return nil
 }
@@ -310,8 +278,8 @@ func (c *IDChainStore) PersistVerifiableCredentialTx(batch database.Batch,
 func (c *IDChainStore) persistVerifiableCredentialTx(batch database.Batch,
 	idKey []byte, tx *types.Transaction, blockHeight uint32,
 	blockTimeStamp uint32) error {
-	payload := tx.Payload.(*id.VerifiableCredentialPayload)
-	verifyCred := payload.Doc.VerifiableCredentialData
+	payload := tx.Payload.(*id.DIDPayload)
+	verifyCred := payload.CredentialDoc.VerifiableCredentialData
 	expiresHeight, err := c.TryGetExpiresHeight(verifyCred.ExpirationDate, blockHeight, blockTimeStamp)
 	if err != nil {
 		return err
@@ -328,46 +296,6 @@ func (c *IDChainStore) persistVerifiableCredentialTx(batch database.Batch,
 	}
 
 	return nil
-}
-
-func (c *IDChainStore) persistDeactivateCustomizedDIDTx(batch database.Batch, idKey []byte) error {
-	key := []byte{byte(IX_DeactivateCustomizedDID)}
-	key = append(key, idKey...)
-
-	buf := new(bytes.Buffer)
-	if err := common.WriteVarUint(buf, 1); err != nil {
-		return err
-	}
-	return batch.Put(key, buf.Bytes())
-}
-
-func (c *IDChainStore) persistCustomizedDIDTx(batch database.Batch,
-	idKey []byte, tx *types.Transaction, blockHeight uint32,
-	blockTimeStamp uint32) error {
-	customizedDIDOperation := tx.Payload.(*id.DIDPayload)
-	expiresHeight, err := c.TryGetExpiresHeight(customizedDIDOperation.DIDDoc.Expires, blockHeight, blockTimeStamp)
-	if err != nil {
-		return err
-	}
-
-	if err := c.persistCustomizedDIDExpiresHeight(batch, idKey, expiresHeight); err != nil {
-		return err
-	}
-	if err := c.persistCustomizedDIDTxHash(batch, idKey, tx.Hash()); err != nil {
-		return err
-	}
-
-	if err := c.persistCustomizedDIDPayload(batch, tx.Hash(), customizedDIDOperation); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *IDChainStore) PersistCustomizedDIDTx(batch database.Batch,
-	idKey []byte, tx *types.Transaction, blockHeight uint32,
-	blockTimeStamp uint32) error {
-	return c.persistCustomizedDIDTx(batch, idKey, tx, blockHeight, blockTimeStamp)
 }
 
 func (c *IDChainStore) PersistRegisterDIDTx(batch database.Batch,
@@ -406,7 +334,7 @@ func (c *IDChainStore) IsDIDDeactivated(did string) bool {
 }
 
 func (c *IDChainStore) persistVerifiableCredentialPayload(batch database.Batch,
-	txHash common.Uint256, p *id.VerifiableCredentialPayload) error {
+	txHash common.Uint256, p *id.DIDPayload) error {
 	key := []byte{byte(IX_VerifiableCredentialPayload)}
 	key = append(key, txHash.Bytes()...)
 
@@ -549,100 +477,9 @@ func (c *IDChainStore) persistRegisterDIDExpiresHeight(batch database.Batch,
 	return batch.Put(key, buf.Bytes())
 }
 
-func (c *IDChainStore) persistCustomizedDIDExpiresHeight(batch database.Batch,
-	idKey []byte, expiresHeight uint32) error {
-	key := []byte{byte(IX_CUSTOMIZEDDIDExpiresHeight)}
-	key = append(key, idKey...)
-
-	data, err := c.Get(key)
-	if err != nil {
-		// when not exist, only put the current expires height into db.
-		buf := new(bytes.Buffer)
-		if err := common.WriteVarUint(buf, 1); err != nil {
-			return err
-		}
-		if err := common.WriteUint32(buf, expiresHeight); err != nil {
-			return err
-		}
-
-		return batch.Put(key, buf.Bytes())
-	}
-
-	// when exist, should add current expires height to the end of the list.
-	r := bytes.NewReader(data)
-	count, err := common.ReadVarUint(r, 0)
-	if err != nil {
-		return err
-	}
-	count++
-
-	buf := new(bytes.Buffer)
-
-	// write count
-	if err := common.WriteVarUint(buf, count); err != nil {
-		return err
-	}
-	if err := common.WriteUint32(buf, expiresHeight); err != nil {
-		return err
-	}
-	if _, err := r.WriteTo(buf); err != nil {
-		return err
-	}
-
-	return batch.Put(key, buf.Bytes())
-}
-
 func (c *IDChainStore) persistRegisterDIDTxHash(batch database.Batch,
 	idKey []byte, txHash common.Uint256) error {
 	key := []byte{byte(IX_DIDTXHash)}
-	key = append(key, idKey...)
-
-	data, err := c.Get(key)
-	if err != nil {
-		// when not exist, only put the current payload hash into db.
-		buf := new(bytes.Buffer)
-		if err := common.WriteVarUint(buf, 1); err != nil {
-			return err
-		}
-
-		if err := txHash.Serialize(buf); err != nil {
-			return err
-		}
-
-		return batch.Put(key, buf.Bytes())
-	}
-
-	// when exist, should add current payload hash to the end of the list.
-	r := bytes.NewReader(data)
-	count, err := common.ReadVarUint(r, 0)
-	if err != nil {
-		return err
-	}
-	count++
-
-	buf := new(bytes.Buffer)
-
-	// write count
-	if err := common.WriteVarUint(buf, count); err != nil {
-		return err
-	}
-
-	// write current payload hash
-	if err := txHash.Serialize(buf); err != nil {
-		return err
-	}
-
-	// write old hashes
-	if _, err := r.WriteTo(buf); err != nil {
-		return err
-	}
-
-	return batch.Put(key, buf.Bytes())
-}
-
-func (c *IDChainStore) persistCustomizedDIDTxHash(batch database.Batch,
-	idKey []byte, txHash common.Uint256) error {
-	key := []byte{byte(IX_CUSTOMIZEDDIDTXHash)}
 	key = append(key, idKey...)
 
 	data, err := c.Get(key)
@@ -1012,23 +849,13 @@ func (c *IDChainStore) rollbackDeactivateDIDTx(batch database.Batch,
 	return nil
 }
 
-func (c *IDChainStore) persistCustomizedDIDPayload(batch database.Batch,
-	txHash common.Uint256, p *id.DIDPayload) error {
-	key := []byte{byte(IX_CUSTOMIZEDDIDPayload)}
-	key = append(key, txHash.Bytes()...)
-
-	buf := new(bytes.Buffer)
-	p.Serialize(buf, id.DIDVersion)
-	return batch.Put(key, buf.Bytes())
-}
-
 func (c *IDChainStore) persistRegisterDIDPayload(batch database.Batch,
-	txHash common.Uint256, p *id.Operation) error {
+	txHash common.Uint256, p *id.DIDPayload) error {
 	key := []byte{byte(IX_DIDPayload)}
 	key = append(key, txHash.Bytes()...)
 
 	buf := new(bytes.Buffer)
-	p.Serialize(buf, id.DIDInfoVersion)
+	p.Serialize(buf, id.DIDVersion)
 	return batch.Put(key, buf.Bytes())
 }
 
@@ -1062,17 +889,17 @@ func (c *IDChainStore) GetLastDIDTxData(idKey []byte) (*id.DIDTransactionData, e
 		return nil, err
 	}
 
-	tempOperation := new(id.Operation)
+	tempOperation := new(id.DIDPayload)
 	r = bytes.NewReader(dataPayload)
-	err = tempOperation.Deserialize(r, id.DIDInfoVersion)
+	err = tempOperation.Deserialize(r, id.DIDVersion)
 	if err != nil {
 		return nil, http.NewError(int(service.ResolverInternalError),
 			"tempOperation Deserialize failed")
 	}
-	tempTxData := new(id.TranasactionData)
+	tempTxData := new(id.DIDTransactionData)
 	tempTxData.TXID = txHash.String()
 	tempTxData.Operation = *tempOperation
-	tempTxData.Timestamp = tempOperation.PayloadInfo.Expires
+	tempTxData.Timestamp = tempOperation.DIDDoc.Expires
 
 	return tempTxData, nil
 }
@@ -1142,7 +969,7 @@ func (c *IDChainStore) GetLastCustomizedDIDTxData(idKey []byte) (*id.DIDTransact
 	tempTxData := new(id.DIDTransactionData)
 	tempTxData.TXID = txHash.String()
 	tempTxData.Operation = *tempOperation
-	tempTxData.Timestamp = tempOperation.GetPayloadInfo().Expires
+	tempTxData.Timestamp = tempOperation.GetDIDDoc().Expires
 
 	return tempTxData, nil
 }
@@ -1196,7 +1023,7 @@ func (c *IDChainStore) GetCustomizedDIDExpiresHeight(idKey []byte) (uint32, erro
 	return expiresBlockHeight, nil
 }
 
-func (c *IDChainStore) GetAllDIDTxTxData(idKey []byte) ([]id.TranasactionData, error) {
+func (c *IDChainStore) GetAllDIDTxTxData(idKey []byte) ([]id.DIDTransactionData, error) {
 	key := []byte{byte(IX_DIDTXHash)}
 	key = append(key, idKey...)
 
@@ -1210,7 +1037,7 @@ func (c *IDChainStore) GetAllDIDTxTxData(idKey []byte) ([]id.TranasactionData, e
 	if err != nil {
 		return nil, err
 	}
-	var transactionsData []id.TranasactionData
+	var transactionsData []id.DIDTransactionData
 	for i := uint64(0); i < count; i++ {
 		var txHash common.Uint256
 		if err := txHash.Deserialize(r); err != nil {
@@ -1223,17 +1050,17 @@ func (c *IDChainStore) GetAllDIDTxTxData(idKey []byte) ([]id.TranasactionData, e
 		if err != nil {
 			return nil, err
 		}
-		tempOperation := new(id.Operation)
+		tempOperation := new(id.DIDPayload)
 		r := bytes.NewReader(payloadData)
-		err = tempOperation.Deserialize(r, id.DIDInfoVersion)
+		err = tempOperation.Deserialize(r, id.DIDVersion)
 		if err != nil {
 			return nil, http.NewError(int(service.InvalidTransaction),
 				"payloaddid Deserialize failed")
 		}
-		tempTxData := new(id.TranasactionData)
+		tempTxData := new(id.DIDTransactionData)
 		tempTxData.TXID = txHash.String()
 		tempTxData.Operation = *tempOperation
-		tempTxData.Timestamp = tempOperation.PayloadInfo.Expires
+		tempTxData.Timestamp = tempOperation.DIDDoc.Expires
 		transactionsData = append(transactionsData, *tempTxData)
 	}
 
@@ -1277,14 +1104,14 @@ func (c *IDChainStore) GetAllCustomizedDIDTxTxData(idKey []byte) ([]id.DIDTransa
 		tempTxData := new(id.DIDTransactionData)
 		tempTxData.TXID = txHash.String()
 		tempTxData.Operation = *tempOperation
-		tempTxData.Timestamp = tempOperation.GetPayloadInfo().Expires
+		tempTxData.Timestamp = tempOperation.GetDIDDoc().Expires
 		transactionsData = append(transactionsData, *tempTxData)
 	}
 
 	return transactionsData, nil
 }
 
-func (c *IDChainStore) GetLastVerifiableCredentialTxData(idKey []byte) (*id.VerifiableCredentialTxData, error) {
+func (c *IDChainStore) GetLastVerifiableCredentialTxData(idKey []byte) (*id.DIDTransactionData, error) {
 	key := []byte{byte(IX_VerifiableCredentialTXHash)}
 	key = append(key, idKey...)
 
@@ -1314,17 +1141,17 @@ func (c *IDChainStore) GetLastVerifiableCredentialTxData(idKey []byte) (*id.Veri
 		return nil, err
 	}
 
-	credentialPayload := new(id.VerifiableCredentialPayload)
+	credentialPayload := new(id.DIDPayload)
 	r = bytes.NewReader(dataPayload)
 	err = credentialPayload.Deserialize(r, id.VerifiableCredentialVersion)
 	if err != nil {
 		return nil, http.NewError(int(service.ResolverInternalError),
 			"tempOperation Deserialize failed")
 	}
-	tempTxData := new(id.VerifiableCredentialTxData)
+	tempTxData := new(id.DIDTransactionData)
 	tempTxData.TXID = txHash.String()
 	tempTxData.Operation = *credentialPayload
-	tempTxData.Timestamp = credentialPayload.Doc.ExpirationDate
+	tempTxData.Timestamp = credentialPayload.CredentialDoc.ExpirationDate
 
 	return tempTxData, nil
 }
@@ -1356,7 +1183,7 @@ func (c *IDChainStore) GetAllVerifiableCredentialTxData(idKey []byte) ([]id.Veri
 		if err != nil {
 			return nil, err
 		}
-		vcPayload := new(id.VerifiableCredentialPayload)
+		vcPayload := new(id.DIDPayload)
 		r := bytes.NewReader(payloadData)
 		err = vcPayload.Deserialize(r, id.VerifiableCredentialVersion)
 		if err != nil {
@@ -1365,7 +1192,7 @@ func (c *IDChainStore) GetAllVerifiableCredentialTxData(idKey []byte) ([]id.Veri
 		}
 		tempTxData := new(id.VerifiableCredentialTxData)
 		tempTxData.TXID = txHash.String()
-		tempTxData.Timestamp = vcPayload.Doc.ExpirationDate
+		tempTxData.Timestamp = vcPayload.CredentialDoc.ExpirationDate
 		tempTxData.Operation = *vcPayload
 		transactionsData = append(transactionsData, *tempTxData)
 	}

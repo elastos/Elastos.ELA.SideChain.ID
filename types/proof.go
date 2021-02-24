@@ -29,6 +29,14 @@ type CredentialProof struct {
 	Signature          string `json:"signature"`
 }
 
+// Proof of DID transaction payload
+type TicketProof struct {
+	Type               string `json:"type,omitempty"`
+	Created            string `json:"created"`
+	VerificationMethod string `json:"verificationMethod"`
+	SignatureValue     string `json:"signatureValue"`
+}
+
 func (d *Proof) Serialize(w io.Writer, version byte) error {
 	if err := common.WriteVarString(w, d.Type); err != nil {
 		return errors.New("[Proof], Type serialize failed.")

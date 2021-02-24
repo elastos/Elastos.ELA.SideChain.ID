@@ -28,6 +28,10 @@ func (c *DIDDoc) GetData() []byte {
 	return data
 }
 
+func (p *VerifiableCredentialDoc) GetDIDProofInfo() *CredentialProof {
+	return &p.Proof
+}
+
 func (p *VerifiableCredentialDoc) GetData() []byte {
 	data, err := didjson.Marshal(p)
 	if err != nil {
@@ -37,13 +41,14 @@ func (p *VerifiableCredentialDoc) GetData() []byte {
 }
 
 type CustomizedDIDPayloadData struct {
-	ID                   string                 `json:"id"`
-	Controller           interface{}            `json:"controller,omitempty"`
-	MultiSig             string                 `json:"multisig,omitempty"`
-	PublicKey            []DIDPublicKeyInfo     `json:"publicKey,omitempty"`
-	Authentication       []interface{}          `json:"authentication,omitempty"`
-	VerifiableCredential []VerifiableCredential `json:"verifiableCredential,omitempty"`
-	Expires              string                 `json:"expires"`
+	ID                   string                    `json:"id"`
+	Controller           interface{}               `json:"controller,omitempty"`
+	MultiSig             string                    `json:"multisig,omitempty"`
+	PublicKey            []DIDPublicKeyInfo        `json:"publicKey,omitempty"`
+	Authentication       []interface{}             `json:"authentication,omitempty"`
+	Authorization        []interface{}             `json:"authorization,omitempty"`
+	VerifiableCredential []VerifiableCredentialDoc `json:"verifiableCredential,omitempty"`
+	Expires              string                    `json:"expires"`
 }
 
 func (c *CustomizedDIDPayloadData) GetData() []byte {
@@ -52,6 +57,12 @@ func (c *CustomizedDIDPayloadData) GetData() []byte {
 		return nil
 	}
 	return data
+}
+
+type VerifiableCredentialTxData struct {
+	TXID      string     `json:"txid"`
+	Timestamp string     `json:"timestamp"`
+	Operation DIDPayload `json:"operation"`
 }
 
 type VerifiableCredentialData struct {
@@ -151,21 +162,4 @@ func (p *DIDPublicKeyInfo) Deserialize(r io.Reader, version byte) error {
 	p.PublicKeyBase58 = pkBase58
 
 	return nil
-}
-
-type VerifiableCredential struct {
-	*VerifiableCredentialData
-	Proof CredentialProof `json:"proof,omitempty"`
-}
-
-func (p *VerifiableCredential) GetDIDProofInfo() *CredentialProof {
-	return &p.Proof
-}
-
-func (p *VerifiableCredential) GetData() []byte {
-	data, err := didjson.Marshal(p)
-	if err != nil {
-		return nil
-	}
-	return data
 }

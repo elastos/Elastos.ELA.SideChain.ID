@@ -13,7 +13,7 @@ import (
 )
 
 type DIDParams struct {
-	// CheckRegisterDIDHeight defines the height to check RegisterDID transactions.
+	// CheckRegisterDIDHeight defines the height to check DIDOperation transactions.
 	CheckRegisterDIDHeight uint32
 
 	// VerifiableCredentialHeight defines the height to VeriﬁableCredential.

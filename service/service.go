@@ -124,9 +124,9 @@ type RpcPayloadDIDInfo struct {
 }
 
 type RpcOperation struct {
-	Header  id.DIDHeaderInfo `json:"header"`
-	Payload string           `json:"payload"`
-	Proof   id.Proof         `json:"proof"`
+	Header  id.Header `json:"header"`
+	Payload string    `json:"payload"`
+	Proof   id.Proof  `json:"proof"`
 }
 
 type RpcTranasactionData struct {
@@ -136,7 +136,7 @@ type RpcTranasactionData struct {
 }
 
 func (rpcTxData *RpcTranasactionData) FromTranasactionData(txData id.
-	TranasactionData) bool {
+	DIDTransactionData) bool {
 	hash, err := common.Uint256FromHexString(txData.TXID)
 	if err != nil {
 		return false
@@ -164,9 +164,9 @@ type RpcCredentialTransactionData struct {
 }
 
 type CredentialOperation struct {
-	Header  id.VerifiableCredentialHeaderInfo `json:"header"`
-	Payload string                            `json:"payload"`
-	Proof   interface{}                       `json:"proof"`
+	Header  id.Header   `json:"header"`
+	Payload string      `json:"payload"`
+	Proof   interface{} `json:"proof"`
 }
 
 func (rpcTxData *RpcCredentialTransactionData) FromCredentialTranasactionData(txData id.
@@ -239,7 +239,7 @@ func (s *HttpService) ResolveCredential(param http.Params) (interface{}, error) 
 
 	var rpcPayloadDid RpcCredentialPayloadDIDInfo
 	for index, txData := range txsData {
-		rpcPayloadDid.ID = txData.Operation.Doc.ID
+		rpcPayloadDid.ID = txData.Operation.CredentialDoc.ID
 		err, timestamp := s.getTxTime(txData.TXID)
 		if err != nil {
 			continue
@@ -255,8 +255,8 @@ func (s *HttpService) ResolveCredential(param http.Params) (interface{}, error) 
 			isRevokeTransaction = true
 		}
 
-		signer := txData.Operation.Proof.(*id.CredentialProof).VerificationMethod
-		if isRevokeTransaction && issuerID == "" && signer == txData.Operation.Doc.Issuer {
+		signer := txData.Operation.Proof.VerificationMethod
+		if isRevokeTransaction && issuerID == "" && signer == txData.Operation.CredentialDoc.Issuer {
 			continue
 		}
 
@@ -322,7 +322,7 @@ func (s *HttpService) ResolveDID(param http.Params) (interface{}, error) {
 		return nil, http.NewError(int(service.InternalError), "Parse Expires failed")
 	}
 
-	var txsData []id.TranasactionData
+	var txsData []id.DIDTransactionData
 	if isGetAll {
 		txsData, err = s.store.GetAllDIDTxTxData(buf.Bytes())
 		if err != nil {
@@ -341,7 +341,7 @@ func (s *HttpService) ResolveDID(param http.Params) (interface{}, error) {
 		}
 	}
 	for index, txData := range txsData {
-		rpcPayloadDid.DID = txData.Operation.PayloadInfo.ID
+		rpcPayloadDid.DID = txData.Operation.DIDDoc.ID
 		err, timestamp := s.getTxTime(txData.TXID)
 		if err != nil {
 			continue
@@ -636,7 +636,7 @@ func GetPayloadInfo(p types.Payload, pVersion byte) service.PayloadInfo {
 		}
 		obj.Contents = contents
 		return obj
-	case *id.Operation:
+	case *id.DIDPayload:
 		operation := new(RpcOperation)
 		operation.Header = object.Header
 		operation.Payload = object.Payload
