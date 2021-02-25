@@ -11,7 +11,7 @@ import (
 
 // payload in DID transaction payload
 type DIDDoc struct {
-	*CustomizedDIDPayloadData
+	*DIDPayloadData
 	Proof interface{} `json:"proof,omitempty"`
 }
 
@@ -44,18 +44,18 @@ func (p *VerifiableCredential) GetData() []byte {
 	return data
 }
 
-type CustomizedDIDPayloadData struct {
-	ID                   string                 `json:"id"`
-	Controller           interface{}            `json:"controller,omitempty"`
-	MultiSig             string                 `json:"multisig,omitempty"`
-	PublicKey            []DIDPublicKeyInfo     `json:"publicKey,omitempty"`
-	Authentication       []interface{}          `json:"authentication,omitempty"`
-	Authorization        []interface{}          `json:"authorization,omitempty"`
-	VerifiableCredential []VerifiableCredential `json:"verifiableCredential,omitempty"`
-	Expires              string                 `json:"expires"`
+type DIDPayloadData struct {
+	ID                   string                    `json:"id"`
+	Controller           interface{}               `json:"controller,omitempty"`
+	MultiSig             string                    `json:"multisig,omitempty"`
+	PublicKey            []DIDPublicKeyInfo        `json:"publicKey,omitempty"`
+	Authentication       []interface{}             `json:"authentication,omitempty"`
+	Authorization        []interface{}             `json:"authorization,omitempty"`
+	VerifiableCredential []VerifiableCredentialDoc `json:"verifiableCredential,omitempty"`
+	Expires              string                    `json:"expires"`
 }
 
-func (c *CustomizedDIDPayloadData) GetData() []byte {
+func (c *DIDPayloadData) GetData() []byte {
 	data, err := didjson.Marshal(c)
 	if err != nil {
 		return nil

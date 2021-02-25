@@ -209,7 +209,7 @@ func TestRandomPlayDID(t *testing.T) {
 
 func randomPayloadDIDNoAuth() *DIDPayload {
 	info := &DIDDoc{
-		CustomizedDIDPayloadData: &CustomizedDIDPayloadData{
+		DIDPayloadData: &DIDPayloadData{
 			ID: randomString(),
 			PublicKey: []DIDPublicKeyInfo{
 				{
@@ -239,7 +239,7 @@ func randomPayloadDIDNoAuth() *DIDPayload {
 
 func randomPayloadDIDAll() *DIDPayload {
 	info := &DIDDoc{
-		CustomizedDIDPayloadData: &CustomizedDIDPayloadData{
+		DIDPayloadData: &DIDPayloadData{
 			ID: randomString(),
 			PublicKey: []DIDPublicKeyInfo{
 				{
@@ -276,7 +276,7 @@ func randomPayloadDIDAll() *DIDPayload {
 
 func randomPayloadNoContrller() *DIDPayload {
 	info := &DIDDoc{
-		CustomizedDIDPayloadData: &CustomizedDIDPayloadData{
+		DIDPayloadData: &DIDPayloadData{
 			ID: randomString(),
 			PublicKey: []DIDPublicKeyInfo{
 				{

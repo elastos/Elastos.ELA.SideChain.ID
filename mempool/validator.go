@@ -1948,7 +1948,7 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 		return err
 	}
 	//4, proof multisign verify
-	err = v.checkCustomIDInnerProof(DIDProofArray, customizedDIDPayload.DIDDoc.CustomizedDIDPayloadData, N, verifyDoc)
+	err = v.checkCustomIDInnerProof(DIDProofArray, customizedDIDPayload.DIDDoc.DIDPayloadData, N, verifyDoc)
 	if err != nil {
 		return err
 	}
