@@ -16,6 +16,10 @@ type DIDDoc struct {
 }
 
 type VerifiableCredentialDoc struct {
+	*VerifiableCredential `json:"verifiableCredential,omitempty"`
+}
+
+type VerifiableCredential struct {
 	*VerifiableCredentialData
 	Proof CredentialProof `json:"proof,omitempty"`
 }
@@ -28,11 +32,11 @@ func (c *DIDDoc) GetData() []byte {
 	return data
 }
 
-func (p *VerifiableCredentialDoc) GetDIDProofInfo() *CredentialProof {
+func (p *VerifiableCredential) GetDIDProofInfo() *CredentialProof {
 	return &p.Proof
 }
 
-func (p *VerifiableCredentialDoc) GetData() []byte {
+func (p *VerifiableCredential) GetData() []byte {
 	data, err := didjson.Marshal(p)
 	if err != nil {
 		return nil
@@ -41,14 +45,14 @@ func (p *VerifiableCredentialDoc) GetData() []byte {
 }
 
 type CustomizedDIDPayloadData struct {
-	ID                   string                    `json:"id"`
-	Controller           interface{}               `json:"controller,omitempty"`
-	MultiSig             string                    `json:"multisig,omitempty"`
-	PublicKey            []DIDPublicKeyInfo        `json:"publicKey,omitempty"`
-	Authentication       []interface{}             `json:"authentication,omitempty"`
-	Authorization        []interface{}             `json:"authorization,omitempty"`
-	VerifiableCredential []VerifiableCredentialDoc `json:"verifiableCredential,omitempty"`
-	Expires              string                    `json:"expires"`
+	ID                   string                 `json:"id"`
+	Controller           interface{}            `json:"controller,omitempty"`
+	MultiSig             string                 `json:"multisig,omitempty"`
+	PublicKey            []DIDPublicKeyInfo     `json:"publicKey,omitempty"`
+	Authentication       []interface{}          `json:"authentication,omitempty"`
+	Authorization        []interface{}          `json:"authorization,omitempty"`
+	VerifiableCredential []VerifiableCredential `json:"verifiableCredential,omitempty"`
+	Expires              string                 `json:"expires"`
 }
 
 func (c *CustomizedDIDPayloadData) GetData() []byte {
@@ -56,6 +60,7 @@ func (c *CustomizedDIDPayloadData) GetData() []byte {
 	if err != nil {
 		return nil
 	}
+	println("data ", string(data))
 	return data
 }
 
@@ -89,7 +94,7 @@ func IsCompact(target string) bool {
 	return false
 }
 
-func (p *VerifiableCredentialData) CompleteCompact(did string) {
+func (p *VerifiableCredential) CompleteCompact(did string) {
 	if IsCompact(p.Issuer) {
 		p.Issuer = did + p.Issuer
 	}
