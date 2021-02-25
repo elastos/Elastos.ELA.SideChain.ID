@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -751,7 +752,7 @@ func (v *validator) getCredentialIssuer(DID string, cridential *id.VerifiableCre
            if so get public key from Authentication or PublicKey
         3, verify credential sign. if ID is compact format must Completion ID
 */
-func (v *validator) checkVerifiableCredentials(DID string, VerifiableCredential []id.VerifiableCredentialDoc,
+func (v *validator) checkVerifiableCredentials(DID string, VerifiableCredential []id.VerifiableCredential,
 	Authentication []interface{}, PublicKey []id.DIDPublicKeyInfo, controller interface{}) error {
 	var issuerPublicKey, issuerCode, signature []byte
 	var err error
@@ -812,7 +813,7 @@ func (v *validator) checkVerifiableCredentials(DID string, VerifiableCredential 
 			return err
 		}
 		//if DID is compact format must Completion DID
-		cridential.VerifiableCredentialData.CompleteCompact(DID)
+		cridential.CompleteCompact(DID)
 		// verify proof
 		var success bool
 
@@ -919,6 +920,7 @@ func getAuthorizatedPublicKey(proof *id.Proof, DIDDoc *id.DIDDoc) string {
 	return ""
 }
 
+//todo use VerificationMethod correspond public key
 func getPublicKey(VerificationMethod string, Authentication []interface{}, PublicKey []id.DIDPublicKeyInfo) string {
 	proofUriSegment := getUriSegment(VerificationMethod)
 
@@ -1135,6 +1137,22 @@ func GetVerifiableCredentialID(cridential *id.VerifiableCredentialDoc) string {
 	return ID
 }
 
+func (v *validator) isDID(didDoc *id.DIDDoc) bool {
+
+	if !strings.HasPrefix(didDoc.ID, id.DID_ELASTOS_PREFIX) {
+		return false
+	}
+	idString := id.GetDIDFromUri(didDoc.ID)
+
+	for _, pkInfo := range didDoc.PublicKey {
+		publicKey := base58.Decode(pkInfo.PublicKeyBase58)
+		if IsMatched(publicKey, idString) {
+			return true
+		}
+	}
+	return false
+}
+
 func (v *validator) isResiteredDID(ID string) bool {
 	TranasactionData, err := v.GetLastDIDTxData(ID)
 	// err  not registerd
@@ -1293,7 +1311,7 @@ func (v *validator) checkDIDVerifiableCredential(receiveDID, issuerID string,
 		return errors.New("[VM] Check Sig FALSE")
 	}
 
-	if err = v.checkVerifiableCredentials(receiveDID, []id.VerifiableCredentialDoc{*credPayload.CredentialDoc},
+	if err = v.checkVerifiableCredentials(receiveDID, []id.VerifiableCredential{*credPayload.CredentialDoc.VerifiableCredential},
 		verifyDIDDoc.Authentication, verifyDIDDoc.PublicKey, nil); err != nil {
 		return err
 	}
@@ -1502,6 +1520,9 @@ func (v *validator) checkCustomIDInnerProof(DIDProofArray []*id.DocProof, iDateC
 		signature, _ := base64url.DecodeString(CustomizedDIDProof.SignatureValue)
 
 		var success bool
+		fmt.Println("publicKeyBase58 ", publicKeyBase58)
+		fmt.Println("signature ", CustomizedDIDProof.SignatureValue)
+
 		success, err = v.VerifyByVM(iDateContainer, code, signature)
 
 		if err != nil {
@@ -1977,8 +1998,7 @@ func (v *validator) checkDIDTransaction(txn *types.Transaction, height uint32, m
 	switch p.Header.Operation {
 	case id.Create_DID_Operation, id.Update_DID_Operation:
 		var isRegisterDID bool
-		// todo check pk to set isRegisterDID
-
+		isRegisterDID = v.isDID(p.DIDDoc)
 		if isRegisterDID {
 			return v.checkRegisterDID(txn, height, mainChainHeight)
 		} else {

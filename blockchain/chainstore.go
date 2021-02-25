@@ -279,7 +279,8 @@ func (c *IDChainStore) persistVerifiableCredentialTx(batch database.Batch,
 	idKey []byte, tx *types.Transaction, blockHeight uint32,
 	blockTimeStamp uint32) error {
 	payload := tx.Payload.(*id.DIDPayload)
-	verifyCred := payload.CredentialDoc.VerifiableCredentialData
+
+	verifyCred := payload.CredentialDoc
 	expiresHeight, err := c.TryGetExpiresHeight(verifyCred.ExpirationDate, blockHeight, blockTimeStamp)
 	if err != nil {
 		return err

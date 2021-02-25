@@ -3,6 +3,7 @@ package mempool
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -211,66 +212,66 @@ var errDIDDocBytes = []byte(
 	 }
 `)
 
-// todo complete the test
-//func (s *txValidatorTestSuite) TestIDChainStore_CreateDIDTx() {
-//	tx := &types2.Transaction{
-//		TxType:         0x0a,
-//		PayloadVersion: 0,
-//		Payload:        getPayloadCreateDID(),
-//		Inputs:         nil,
-//		Outputs:        nil,
-//		LockTime:       0,
-//		Programs:       nil,
-//		Fee:            0,
-//		FeePerKB:       0,
-//	}
-//	fmt.Println(tx)
-//	data, _ := hex.DecodeString(publicKeyStr1)
-//	fmt.Println(data)
-//
-//	fmt.Println(len(data))
-//	i, _ := getDIDByPublicKey(data)
-//	didAddress, _ := i.ToAddress()
-//	fmt.Println("didAddress", didAddress)
-//	err := s.validator.checkDIDTransaction(tx, 0, 0)
-//	s.NoError(err)
-//
-//	info := new(types.DIDPayload)
-//	didjson.Unmarshal(didDIDDocBytes, info)
-//
-//	payloadBase64, _ := base64url.DecodeString(info.Payload)
-//	DIDDoc := new(types.DIDDoc)
-//	didjson.Unmarshal(payloadBase64, DIDDoc)
-//	info.DIDDoc = DIDDoc
-//
-//	tx.Payload = info
-//	err = s.validator.checkDIDTransaction(tx, 0, 0)
-//	s.NoError(err)
-//
-//	info.DIDDoc.Expires = "Mon Jan _2 15:04:05 2006"
-//	err = s.validator.checkDIDTransaction(tx, 0, 0)
-//	s.Error(err, "invalid Expires")
-//
-//	info.DIDDoc.Expires = "2006-01-02T15:04:05Z07:00"
-//	err = s.validator.checkDIDTransaction(tx, 0, 0)
-//	s.Error(err, "invalid Expires")
-//
-//	info.DIDDoc.Expires = "2018-06-30T12:00:00Z"
-//	err = s.validator.checkDIDTransaction(tx, 0, 0)
-//	s.NoError(err)
-//
-//	info = new(types.DIDPayload)
-//	didjson.Unmarshal(errDIDDocBytes, info)
-//
-//	payloadBase64, _ = base64url.DecodeString(info.Payload)
-//	DIDDoc = new(types.DIDDoc)
-//	didjson.Unmarshal(payloadBase64, DIDDoc)
-//	info.DIDDoc = DIDDoc
-//
-//	tx.Payload = info
-//	err = s.validator.checkDIDTransaction(tx, 0, 0)
-//	s.Error(err, "invalid Expires")
-//}
+func (s *txValidatorTestSuite) TestIDChainStore_CreateDIDTx() {
+	tx := &types2.Transaction{
+		TxType:         0x0a,
+		PayloadVersion: 0,
+		Payload:        getPayloadCreateDID(),
+		Inputs:         nil,
+		Outputs:        nil,
+		LockTime:       0,
+		Programs:       nil,
+		Fee:            0,
+		FeePerKB:       0,
+	}
+	fmt.Println(tx)
+	data, _ := hex.DecodeString(publicKeyStr1)
+	fmt.Println(data)
+
+	fmt.Println(len(data))
+	i, _ := getDIDByPublicKey(data)
+	didAddress, _ := i.ToAddress()
+	fmt.Println("didAddress", didAddress)
+	s.validator.didParam.CustomIDFeeRate = 0
+	err := s.validator.checkDIDTransaction(tx, 0, 0)
+	s.NoError(err)
+
+	info := new(types.DIDPayload)
+	didjson.Unmarshal(didDIDDocBytes, info)
+
+	payloadBase64, _ := base64url.DecodeString(info.Payload)
+	DIDDoc := new(types.DIDDoc)
+	didjson.Unmarshal(payloadBase64, DIDDoc)
+	info.DIDDoc = DIDDoc
+
+	tx.Payload = info
+	err = s.validator.checkDIDTransaction(tx, 0, 0)
+	s.NoError(err)
+
+	info.DIDDoc.Expires = "Mon Jan _2 15:04:05 2006"
+	err = s.validator.checkDIDTransaction(tx, 0, 0)
+	s.Error(err, "invalid Expires")
+
+	info.DIDDoc.Expires = "2006-01-02T15:04:05Z07:00"
+	err = s.validator.checkDIDTransaction(tx, 0, 0)
+	s.Error(err, "invalid Expires")
+
+	info.DIDDoc.Expires = "2018-06-30T12:00:00Z"
+	err = s.validator.checkDIDTransaction(tx, 0, 0)
+	s.NoError(err)
+
+	info = new(types.DIDPayload)
+	didjson.Unmarshal(errDIDDocBytes, info)
+
+	payloadBase64, _ = base64url.DecodeString(info.Payload)
+	DIDDoc = new(types.DIDDoc)
+	didjson.Unmarshal(payloadBase64, DIDDoc)
+	info.DIDDoc = DIDDoc
+
+	tx.Payload = info
+	err = s.validator.checkDIDTransaction(tx, 0, 0)
+	s.Error(err, "invalid Expires")
+}
 
 func (s *txValidatorTestSuite) TestIDChainStore_DeactivateDIDTx() {
 	didWithPrefix := "did:elastos:iTWqanUovh3zHfnExGaan4SJAXG3DCZC6j"
@@ -694,27 +695,26 @@ func (s *txValidatorTestSuite) TestSelfProclaimedCredential() {
 
 }
 
-// todo complete the test
-//func (s *txValidatorTestSuite) TestCheckRegisterDID() {
-//	id1 := "did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"
-//	privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
-//
-//	id2 := "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
-//	privateKey2Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
-//
-//	tx2 := getDIDTx(id2, "create", id2DocByts, privateKey2Str)
-//	tx1 := getDIDTx(id1, "create", id1DocByts, privateKey1Str)
-//
-//	batch := s.validator.Store.NewBatch()
-//	err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"), tx2,
-//		100, 123456)
-//	s.NoError(err1)
-//	batch.Commit()
-//
-//	s.validator.didParam.CustomIDFeeRate = 0
-//	err2 := s.validator.checkDIDTransaction(tx1, 0, 0)
-//	s.NoError(err2)
-//}
+func (s *txValidatorTestSuite) TestCheckRegisterDID() {
+	id1 := "did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"
+	privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
+
+	id2 := "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
+	privateKey2Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
+
+	tx2 := getDIDTx(id2, "create", id2DocByts, privateKey2Str)
+	tx1 := getDIDTx(id1, "create", id1DocByts, privateKey1Str)
+
+	batch := s.validator.Store.NewBatch()
+	err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"), tx2,
+		100, 123456)
+	s.NoError(err1)
+	batch.Commit()
+
+	s.validator.didParam.CustomIDFeeRate = 0
+	err2 := s.validator.checkDIDTransaction(tx1, 0, 0)
+	s.NoError(err2)
+}
 
 func (s *txValidatorTestSuite) GetprivateKeyStr() string {
 	privateKey1Str := "xprvA39XqfTw2FPEfpMJmM6jK1gzzRv8p1GYJS3DUEEbp1SibLrRyZzHijYTTvzy2a57Es8CBxs2xseMNoLC7nNGxsJY3nfCT3aUeozRQoy8vTH"
@@ -774,40 +774,40 @@ func (s *txValidatorTestSuite) TestCustomizedDIDMultSign() {
 
 }
 
-// todo complete the test
-////self verifiable credential
-//func (s *txValidatorTestSuite) Test0DIDVerifiableCredentialTx() {
-//	//id1 := "iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"
-//	//privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
-//	//tx1 := getDIDTx(id1, "create", id1DocByts, privateKey1Str)
-//	//
-//	//batch := s.validator.Store.NewBatch()
-//	//err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"), tx1,
-//	//	100, 123456)
-//	//s.NoError(err1)
-//	//batch.Commit()
-//	//
-//	//CustomizedDIDTx1 := getCustomizedDIDTx(id1, "create", customizedDIDDocBytes1, privateKey1Str)
-//	//err1 = s.validator.checkCustomizedDID(CustomizedDIDTx1)
-//	//s.NoError(err1)
-//
-//	privateKey2Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
-//	id2 := "ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
-//	tx2 := getDIDTx(id2, "create", id2DocByts, privateKey2Str)
-//	batch2 := s.validator.Store.NewBatch()
-//	err2 := s.validator.Store.PersistRegisterDIDTx(batch2, []byte("ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"), tx2,
-//		100, 123456)
-//	s.NoError(err2)
-//	batch2.Commit()
-//	//did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB
-//	//
-//	verifableCredentialTx := getCustomizedDIDVerifiableCredentialTx("did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB",
-//		"declare",
-//		DIDVerifableCredDocBytes, privateKey2Str)
-//	err := s.validator.checkVerifiableCredential(verifableCredentialTx, 0, 0)
-//	s.NoError(err)
-//
-//}
+//todo complete the test
+//self verifiable credential
+func (s *txValidatorTestSuite) Test0DIDVerifiableCredentialTx() {
+	//id1 := "iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"
+	//privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
+	//tx1 := getDIDTx(id1, "create", id1DocByts, privateKey1Str)
+	//
+	//batch := s.validator.Store.NewBatch()
+	//err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"), tx1,
+	//	100, 123456)
+	//s.NoError(err1)
+	//batch.Commit()
+	//
+	//CustomizedDIDTx1 := getCustomizedDIDTx(id1, "create", customizedDIDDocBytes1, privateKey1Str)
+	//err1 = s.validator.checkCustomizedDID(CustomizedDIDTx1)
+	//s.NoError(err1)
+
+	privateKey2Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
+	id2 := "ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
+	tx2 := getDIDTx(id2, "create", id2DocByts, privateKey2Str)
+	batch2 := s.validator.Store.NewBatch()
+	err2 := s.validator.Store.PersistRegisterDIDTx(batch2, []byte("ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"), tx2,
+		100, 123456)
+	s.NoError(err2)
+	batch2.Commit()
+	//did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB
+	//
+	verifableCredentialTx := getCustomizedDIDVerifiableCredentialTx("did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB",
+		"declare",
+		DIDVerifableCredDocBytes, privateKey2Str)
+	err := s.validator.checkVerifiableCredential(verifableCredentialTx, 0, 0)
+	s.NoError(err)
+
+}
 
 // one cotroller
 func (s *txValidatorTestSuite) TestCustomizedDIDVerifiableCredentialTx() {
@@ -994,24 +994,24 @@ func getCustomizedDIDVerifiableCredPayloadContollers(id1, id2 string, didDIDPayl
 	return p
 }
 
-// todo complete the test
-//func (s *txValidatorTestSuite) TestHeaderPayloadDIDTX() {
-//	fmt.Println("TestHeaderPayloadDIDTX begin")
-//
-//	operation := new(types.DIDPayload)
-//	json.Unmarshal(headerPayloadByts, operation)
-//	fmt.Printf("%+v \n", *operation)
-//
-//	decodePayload, err := base64url.DecodeString(operation.Payload)
-//	s.NoError(err)
-//
-//	info := new(types.DIDDoc)
-//	json.Unmarshal(decodePayload, info)
-//	operation.DIDDoc = info
-//	txn := new(types2.Transaction)
-//	txn.TxType = types.DIDOperation
-//	txn.Payload = operation
-//	err2 := s.validator.checkDIDTransaction(txn, 0, 0)
-//	s.NoError(err2)
-//	fmt.Println("TestHeaderPayloadDIDTX end")
-//}
+func (s *txValidatorTestSuite) TestHeaderPayloadDIDTX() {
+	fmt.Println("TestHeaderPayloadDIDTX begin")
+
+	operation := new(types.DIDPayload)
+	json.Unmarshal(headerPayloadByts, operation)
+	fmt.Printf("%+v \n", *operation)
+
+	decodePayload, err := base64url.DecodeString(operation.Payload)
+	s.NoError(err)
+
+	info := new(types.DIDDoc)
+	json.Unmarshal(decodePayload, info)
+	operation.DIDDoc = info
+	txn := new(types2.Transaction)
+	txn.TxType = types.DIDOperation
+	txn.Payload = operation
+	s.validator.didParam.CustomIDFeeRate = 0
+	err2 := s.validator.checkDIDTransaction(txn, 0, 0)
+	s.NoError(err2)
+	fmt.Println("TestHeaderPayloadDIDTX end")
+}
