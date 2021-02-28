@@ -51,7 +51,7 @@ type DIDPayloadData struct {
 	PublicKey            []DIDPublicKeyInfo        `json:"publicKey,omitempty"`
 	Authentication       []interface{}             `json:"authentication,omitempty"`
 	Authorization        []interface{}             `json:"authorization,omitempty"`
-	VerifiableCredential []VerifiableCredentialDoc `json:"verifiableCredential,omitempty"`
+	VerifiableCredential []VerifiableCredential `json:"verifiableCredential,omitempty"`
 	Expires              string                    `json:"expires"`
 }
 

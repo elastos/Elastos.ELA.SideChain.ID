@@ -1477,7 +1477,7 @@ func (v *validator) checkCustomIDTicketProof(ticketProofArray []*id.TicketProof,
 		if err != nil {
 			return err
 		}
-		signature, _ := base64url.DecodeString(ticketProof.SignatureValue)
+		signature, _ := base64url.DecodeString(ticketProof.Signature)
 
 		var success bool
 		success, err = v.VerifyByVM(iDateContainer, code, signature)
