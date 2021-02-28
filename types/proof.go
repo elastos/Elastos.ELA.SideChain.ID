@@ -13,7 +13,7 @@ type Proof struct {
 	Signature          string `json:"signature"`
 }
 
-// Proof of DID transaction payload
+// Proof of DID transaction doc
 type DocProof struct {
 	Type           string `json:"type,omitempty"`
 	Created        string `json:"created"`
@@ -21,7 +21,7 @@ type DocProof struct {
 	SignatureValue string `json:"signatureValue"`
 }
 
-// Proof of DID transaction payload
+// Proof of DID transaction credential
 type CredentialProof struct {
 	Type               string `json:"type,omitempty"`
 	Created            string `json:"created"`
@@ -29,12 +29,12 @@ type CredentialProof struct {
 	Signature          string `json:"signature"`
 }
 
-// Proof of DID transaction payload
+// Proof of DID transaction ticket
 type TicketProof struct {
 	Type               string `json:"type,omitempty"`
 	Created            string `json:"created"`
 	VerificationMethod string `json:"verificationMethod"`
-	SignatureValue     string `json:"signatureValue"`
+	Signature          string `json:"signature"`
 }
 
 func (d *Proof) Serialize(w io.Writer, version byte) error {
@@ -104,7 +104,7 @@ func (d *DocProof) Deserialize(r io.Reader, version byte) error {
 	}
 	d.SignatureValue, err = common.ReadVarString(r)
 	if err != nil {
-		return errors.New("[DocProof], SignatureValue deserialize failed.")
+		return errors.New("[DocProof], Signature deserialize failed.")
 	}
 	return nil
 }
