@@ -77,7 +77,7 @@ func TestIDChainStore_PersistDIDTx(t *testing.T) {
 	buf1 := new(bytes.Buffer)
 	regPayload1.Serialize(buf1, types.DIDVersion)
 
-	id1 := []byte(idChainStore.GetDIDFromUri(regPayload1.DIDDoc.ID))
+	id1 := []byte(types.GetDIDFromUri(regPayload1.DIDDoc.ID))
 	tx1 := &stype.Transaction{
 		Payload: regPayload1,
 	}
@@ -87,7 +87,7 @@ func TestIDChainStore_PersistDIDTx(t *testing.T) {
 
 	buf2 := new(bytes.Buffer)
 	regPayload2.Serialize(buf2, types.DIDVersion)
-	id2 := []byte(idChainStore.GetDIDFromUri(regPayload2.DIDDoc.ID))
+	id2 := []byte(types.GetDIDFromUri(regPayload2.DIDDoc.ID))
 	tx2 := &stype.Transaction{
 		Payload: regPayload2,
 	}
