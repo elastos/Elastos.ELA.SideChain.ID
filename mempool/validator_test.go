@@ -229,7 +229,7 @@ func (s *txValidatorTestSuite) TestIDChainStore_CreateDIDTx() {
 	fmt.Println(data)
 
 	fmt.Println(len(data))
-	i, _ := getDIDByPublicKey(data)
+	i, _ := types.GetDIDByPublicKey(data)
 	didAddress, _ := i.ToAddress()
 	fmt.Println("didAddress", didAddress)
 	s.validator.didParam.CustomIDFeeRate = 0
@@ -276,7 +276,8 @@ func (s *txValidatorTestSuite) TestIDChainStore_CreateDIDTx() {
 func (s *txValidatorTestSuite) TestIDChainStore_DeactivateDIDTx() {
 	didWithPrefix := "did:elastos:iTWqanUovh3zHfnExGaan4SJAXG3DCZC6j"
 	//did := "iTWqanUovh3zHfnExGaan4SJAXG3DCZC6j"
-	did := s.validator.Store.GetDIDFromUri(didWithPrefix)
+	//did := s.validator.Store.GetDIDFromUri(didWithPrefix)
+
 	verifDid := "did:elastos:iTWqanUovh3zHfnExGaan4SJAXG3DCZC6j#default"
 
 	txCreateDID := &types2.Transaction{
@@ -307,7 +308,7 @@ func (s *txValidatorTestSuite) TestIDChainStore_DeactivateDIDTx() {
 	s.Error(err, "leveldb: not found")
 
 	batch := s.validator.Store.ChainStore.NewBatch()
-	s.validator.Store.PersistRegisterDIDTx(batch, []byte(did), txCreateDID, 0, 0)
+	s.validator.Store.PersistRegisterDIDTx(batch, []byte(didWithPrefix), txCreateDID, 0, 0)
 	batch.Commit()
 
 	err = s.validator.checkDeactivateDID(txDeactivate, 0, 0)
@@ -332,7 +333,7 @@ func (s *txValidatorTestSuite) TestIDChainStore_DeactivateDIDTx() {
 
 	//deactive one deactivated did
 	batch = s.validator.Store.ChainStore.NewBatch()
-	s.validator.Store.PersistDeactivateDIDTx(batch, []byte(did))
+	s.validator.Store.PersistDeactivateDIDTx(batch, []byte(didWithPrefix))
 	batch.Commit()
 	err = s.validator.checkDeactivateDID(txDeactivateWrong, 0, 0)
 	s.Error(err, "DID WAS AREADY DEACTIVE")
@@ -341,11 +342,11 @@ func (s *txValidatorTestSuite) TestIDChainStore_DeactivateDIDTx() {
 
 func (s *txValidatorTestSuite) TestGetIDFromUri() {
 	validUriFormat := "did:elastos:icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN"
-	id := s.validator.Store.GetDIDFromUri(validUriFormat)
+	id := types.GetDIDFromUri(validUriFormat)
 	s.Equal(id, "icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN")
 
 	InvalidUriFormat := "icJ4z2DULrHEzYSvjKNJpKyhqFDxvYV7pN"
-	id = s.validator.Store.GetDIDFromUri(InvalidUriFormat)
+	id = types.GetDIDFromUri(InvalidUriFormat)
 	s.Equal(id, "")
 }
 
@@ -455,7 +456,7 @@ func getCustomizedDIDDoc(id string, didDIDPayload string, docBytes []byte,
 		Payload: base64url.EncodeToString(docBytes),
 		Proof: types.Proof{
 			Type:               "ECDSAsecp256r1",
-			VerificationMethod: "did:elastos:" + id + "#primary",
+			VerificationMethod: id + "#primary", //"did:elastos:" +
 		},
 		DIDDoc: info,
 	}
@@ -482,7 +483,7 @@ func getCustomizedDIDDocMultiSign(id1, id2 string, didDIDPayload string, docByte
 	}
 	proof1 := &types.Proof{
 		Type:               "ECDSAsecp256r1",
-		VerificationMethod: "did:elastos:" + id1 + "#primary",
+		VerificationMethod: id1 + "#primary", //"did:elastos:" +
 	}
 	privateKey1 := base58.Decode(privateKeyStr1)
 	sign, _ := crypto.Sign(privateKey1, p.GetData())
@@ -608,7 +609,7 @@ func getDeactivateCustomizedDIDPayload(customizedDID, verifiacationDID string, p
 		Payload: customizedDID,
 		Proof: types.Proof{
 			Type:               "ECDSAsecp256r1",
-			VerificationMethod: "did:elastos:" + verifiacationDID + "#primary",
+			VerificationMethod: verifiacationDID + "#primary", //"did:elastos:" +
 		},
 	}
 	privateKey1 := base58.Decode(privateKeyStr)
@@ -706,7 +707,7 @@ func (s *txValidatorTestSuite) TestCheckRegisterDID() {
 	tx1 := getDIDTx(id1, "create", id1DocByts, privateKey1Str)
 
 	batch := s.validator.Store.NewBatch()
-	err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"), tx2,
+	err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte(id2), tx2,
 		100, 123456)
 	s.NoError(err1)
 	batch.Commit()
@@ -725,7 +726,7 @@ func (s *txValidatorTestSuite) GetprivateKeyStr() string {
 }
 
 func (s *txValidatorTestSuite) TestCustomizedDID() {
-	id1 := "imUUPBfrZ1yZx6nWXe6LNN59VeX2E6PPKj"
+	id1 := "did:elastos:imUUPBfrZ1yZx6nWXe6LNN59VeX2E6PPKj"
 	privateKey1Str := "413uivqLEMjPd8bo42K9ic6VXpgYcJLEwB3vefxJDhXJ" //413uivqLEMjPd8bo42K9ic6VXpgYcJLEwB3vefxJDhXJ
 	tx1 := getDIDTx(id1, "create", id11DocByts, privateKey1Str)
 	batch := s.validator.Store.NewBatch()
@@ -745,7 +746,7 @@ func (s *txValidatorTestSuite) TestCustomizedDID() {
 
 //issuer.json SelfProclaimedCredential
 func (s *txValidatorTestSuite) TestCustomizedDIDMultSign() {
-	idUser1 := "iXcRhYB38gMt1phi5JXJMjeXL2TL8cg58y"
+	idUser1 := "did:elastos:iXcRhYB38gMt1phi5JXJMjeXL2TL8cg58y"
 	privateKeyUser1Str := "3z2QFDJE7woSUzL6az9sCB1jkZtzfvEZQtUnYVgQEebS"
 	tx1 := getDIDTx(idUser1, "create", idUser1DocByts, privateKeyUser1Str)
 
@@ -756,7 +757,7 @@ func (s *txValidatorTestSuite) TestCustomizedDIDMultSign() {
 	batch.Commit()
 
 	privateKeyUser2Str := "AqBB8Uur4QwwBtFPeA2Yd5yF2Ni45gyz2osfFcMcuP7J"
-	idUser2 := "idwuEMccSpsTH4ZqrhuHqg6y8XMVQAsY5g"
+	idUser2 := "did:elastos:idwuEMccSpsTH4ZqrhuHqg6y8XMVQAsY5g"
 	tx2 := getDIDTx(idUser2, "create", idUser2DocByts, privateKeyUser2Str)
 	batch2 := s.validator.Store.NewBatch()
 	err2 := s.validator.Store.PersistRegisterDIDTx(batch2, []byte(idUser2), tx2,
@@ -792,10 +793,11 @@ func (s *txValidatorTestSuite) Test0DIDVerifiableCredentialTx() {
 	//s.NoError(err1)
 
 	privateKey2Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
-	id2 := "ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
+	//id2 := "ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
+	id2 := "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
 	tx2 := getDIDTx(id2, "create", id2DocByts, privateKey2Str)
 	batch2 := s.validator.Store.NewBatch()
-	err2 := s.validator.Store.PersistRegisterDIDTx(batch2, []byte("ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"), tx2,
+	err2 := s.validator.Store.PersistRegisterDIDTx(batch2, []byte(id2), tx2,
 		100, 123456)
 	s.NoError(err2)
 	batch2.Commit()
@@ -906,23 +908,26 @@ func (s *txValidatorTestSuite) TestCustomizedDIDVerifiableCredentialTx2() {
 
 func (s *txValidatorTestSuite) TestDeactivateCustomizedDIDTX() {
 	//todo
-	return
 	//////////////////////////////
-	id1 := "iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"
+	//id1 := "iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"
+	id1 := "did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"
+
 	privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
 	tx1 := getDIDTx(id1, "create", id1DocByts, privateKey1Str)
 
 	batch := s.validator.Store.NewBatch()
-	err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"), tx1,
+	err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte(id1), tx1,
 		100, 123456)
 	s.NoError(err1)
 	batch.Commit()
 
-	id2 := "ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
+	//id2 := "ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
+	id2 := "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
+
 	privateKey2Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
 	tx2 := getDIDTx(id2, "create", id2DocByts, privateKey2Str)
 	batch2 := s.validator.Store.NewBatch()
-	err2 := s.validator.Store.PersistRegisterDIDTx(batch2, []byte("ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"), tx2,
+	err2 := s.validator.Store.PersistRegisterDIDTx(batch2, []byte(id2), tx2,
 		100, 123456)
 	s.NoError(err2)
 	batch2.Commit()
