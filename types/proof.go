@@ -26,6 +26,8 @@ type CredentialProof struct {
 	Type               string `json:"type,omitempty"`
 	Created            string `json:"created"`
 	VerificationMethod string `json:"verificationMethod"`
+	Nonce              string `json:"nonce"`
+	Realm              string `json:"realm"`
 	Signature          string `json:"signature"`
 }
 

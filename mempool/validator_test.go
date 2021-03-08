@@ -658,7 +658,7 @@ func getDIDVerifiableCredentialPayload(id string, didDIDPayload string, docBytes
 		Payload: base64url.EncodeToString(docBytes),
 		Proof: types.Proof{
 			Type:               "ECDSAsecp256r1",
-			VerificationMethod: "did:elastos:" + id + "#primary",
+			VerificationMethod: id + "#primary",
 		},
 		CredentialDoc: info,
 	}
@@ -668,8 +668,8 @@ func getDIDVerifiableCredentialPayload(id string, didDIDPayload string, docBytes
 	return p
 }
 
-//didDIDPayload must be create or update
-func getCustomizedDIDVerifiableCredentialTx(id, didDIDPayload string, docBytes []byte, privateKeyStr string) *types2.Transaction {
+//Verifiable credential payload must be create or update
+func getIDVerifiableCredentialTx(id, didDIDPayload string, docBytes []byte, privateKeyStr string) *types2.Transaction {
 	payloadDidInfo := getDIDVerifiableCredentialPayload(id, didDIDPayload, docBytes, privateKeyStr)
 	txn := new(types2.Transaction)
 	txn.TxType = types.DIDOperation
@@ -679,8 +679,6 @@ func getCustomizedDIDVerifiableCredentialTx(id, didDIDPayload string, docBytes [
 
 //issuer.json SelfProclaimedCredential
 func (s *txValidatorTestSuite) TestSelfProclaimedCredential() {
-	//todo
-	return
 	s.SetupSuite()
 	privateKey3Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
 	id3 := "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
@@ -775,23 +773,8 @@ func (s *txValidatorTestSuite) TestCustomizedDIDMultSign() {
 
 }
 
-//todo complete the test
 //self verifiable credential
 func (s *txValidatorTestSuite) Test0DIDVerifiableCredentialTx() {
-	//id1 := "iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"
-	//privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
-	//tx1 := getDIDTx(id1, "create", id1DocByts, privateKey1Str)
-	//
-	//batch := s.validator.Store.NewBatch()
-	//err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"), tx1,
-	//	100, 123456)
-	//s.NoError(err1)
-	//batch.Commit()
-	//
-	//CustomizedDIDTx1 := getCustomizedDIDTx(id1, "create", customizedDIDDocBytes1, privateKey1Str)
-	//err1 = s.validator.checkCustomizedDID(CustomizedDIDTx1)
-	//s.NoError(err1)
-
 	privateKey2Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
 	//id2 := "ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
 	id2 := "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
@@ -802,25 +785,41 @@ func (s *txValidatorTestSuite) Test0DIDVerifiableCredentialTx() {
 	s.NoError(err2)
 	batch2.Commit()
 	//did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB
-	//
-	verifableCredentialTx := getCustomizedDIDVerifiableCredentialTx("did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB",
+	verifableCredentialTx := getIDVerifiableCredentialTx("did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB",
 		"declare",
 		DIDVerifableCredDocBytes, privateKey2Str)
+	fmt.Println(verifableCredentialTx)
+	err := s.validator.checkVerifiableCredential(verifableCredentialTx, 0, 0)
+	s.NoError(err)
+}
+
+//self verifiable credential
+func (s *txValidatorTestSuite) TestRevokeVerifiableCredentialTx() {
+	privateKey2Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
+	id2 := "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
+	tx2 := getDIDTx(id2, "create", id2DocByts, privateKey2Str)
+	batch2 := s.validator.Store.NewBatch()
+	err2 := s.validator.Store.PersistRegisterDIDTx(batch2, []byte(id2), tx2,
+		100, 123456)
+	s.NoError(err2)
+	batch2.Commit()
+	verifableCredentialTx := getIDVerifiableCredentialTx("did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB",
+		"declare",
+		DIDVerifableCredDocBytes, privateKey2Str)
+	fmt.Println(verifableCredentialTx)
 	err := s.validator.checkVerifiableCredential(verifableCredentialTx, 0, 0)
 	s.NoError(err)
 
 }
 
 // one cotroller
-func (s *txValidatorTestSuite) TestCustomizedDIDVerifiableCredentialTx() {
-	//todo
-	return
+func (s *txValidatorTestSuite) TestRevokeCustomizedDIDVerifiableCredentialTx() {
 	id1 := "iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"
 	privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
 	tx1 := getDIDTx(id1, "create", id1DocByts, privateKey1Str)
 
 	batch := s.validator.Store.NewBatch()
-	err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"), tx1,
+	err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"), tx1,
 		100, 123456)
 	s.NoError(err1)
 	batch.Commit()
@@ -829,7 +828,7 @@ func (s *txValidatorTestSuite) TestCustomizedDIDVerifiableCredentialTx() {
 	privateKey2Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
 	tx2 := getDIDTx(id2, "create", id2DocByts, privateKey2Str)
 	batch2 := s.validator.Store.NewBatch()
-	err2 := s.validator.Store.PersistRegisterDIDTx(batch2, []byte("ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"), tx2,
+	err2 := s.validator.Store.PersistRegisterDIDTx(batch2, []byte("did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"), tx2,
 		100, 123456)
 	s.NoError(err2)
 	batch2.Commit()
@@ -842,7 +841,7 @@ func (s *txValidatorTestSuite) TestCustomizedDIDVerifiableCredentialTx() {
 	s.NoError(err3)
 	batch3.Commit()
 
-	verifableCredentialTx := getCustomizedDIDVerifiableCredentialTx("iWFAUYhTa35c1fPe3iCJvihZHx6quumnym",
+	verifableCredentialTx := getIDVerifiableCredentialTx("did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym",
 		"declare", customizedVerifableCredDocBytes, privateKey1Str)
 	err := s.validator.checkVerifiableCredential(verifableCredentialTx, 0, 0)
 	s.NoError(err)
@@ -854,16 +853,123 @@ func (s *txValidatorTestSuite) TestCustomizedDIDVerifiableCredentialTx() {
 	s.NoError(err4)
 	batch4.Commit()
 
-	//txDeactivate := getDeactivateCustomizedDIDTx(credentialID, id2, privateKey2Str)
-	////Deactive did  have no
-	//err5 := s.validator.checkCustomizedDIDDeactivateTX(txDeactivate)
-	//s.NoError(err5)
-	////////////////////////////
-	//verifableCredentialRevokeTx := getCustomizedDIDVerifiableCredentialTx("iWFAUYhTa35c1fPe3iCJvihZHx6quumnym",
-	//	"revoke", customizedVerifableCredDocBytes, privateKey2Str)
-	//err5 := s.validator.checkVerifiableCredential(verifableCredentialRevokeTx)
-	//s.NoError(err5)
-	////////////////////////////////
+	verifableCredentialRevokeTx := getIDVerifiableCredentialTx("did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym",
+		"revoke", customizedVerifableCredDocBytes, privateKey2Str)
+	err5 := s.validator.checkVerifiableCredential(verifableCredentialRevokeTx, 0, 0)
+	s.NoError(err5)
+}
+
+// declare after real revoke
+func (s *txValidatorTestSuite) TestRevokeBeforeRegisterVerifiableCredentialTx() {
+	id1 := "iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"
+	privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
+	id2 := "ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
+	privateKey2Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
+
+	verifableCredentialRevokeTx := getIDVerifiableCredentialTx("did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym",
+		"revoke", customizedVerifableCredDocBytes, privateKey2Str)
+	err := s.validator.checkVerifiableCredential(verifableCredentialRevokeTx, 0, 0)
+	s.NoError(err)
+
+	batch := s.validator.Store.NewBatch()
+	err = s.validator.Store.PersistVerifiableCredentialTx(batch, []byte("did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB#profile"), verifableCredentialRevokeTx,
+		100, 123456)
+	s.NoError(err)
+	batch.Commit()
+
+	tx1 := getDIDTx(id1, "create", id1DocByts, privateKey1Str)
+
+	batch1 := s.validator.Store.NewBatch()
+	err1 := s.validator.Store.PersistRegisterDIDTx(batch1, []byte("did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"), tx1,
+		100, 123456)
+	s.NoError(err1)
+	batch1.Commit()
+
+	tx2 := getDIDTx(id2, "create", id2DocByts, privateKey2Str)
+	batch2 := s.validator.Store.NewBatch()
+	err2 := s.validator.Store.PersistRegisterDIDTx(batch2, []byte("did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"), tx2,
+		100, 123456)
+	s.NoError(err2)
+	batch2.Commit()
+
+	CustomizedDIDTx1 := getCustomizedDIDTx(id1, "create", customizedDIDDocBytes1, privateKey1Str)
+	customizedDID := "did:elastos:foobar"
+	batch3 := s.validator.Store.NewBatch()
+	err3 := s.validator.Store.PersistRegisterDIDTx(batch3, []byte(customizedDID), CustomizedDIDTx1,
+		101, 123456)
+	s.NoError(err3)
+	batch3.Commit()
+
+	verifableCredentialTx := getIDVerifiableCredentialTx("did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym",
+		"declare", customizedVerifableCredDocBytes, privateKey1Str)
+	err = s.validator.checkVerifiableCredential(verifableCredentialTx, 0, 0)
+	s.EqualError(err, "VerifiableCredential WRONG OPERATION ALREADY Revoked")
+}
+
+// declare after wrong revoke
+func (s *txValidatorTestSuite) TestWrongRevokeBeforeRegisterVerifiableCredentialTx() {
+	privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
+	verifableCredentialRevokeTx := getIDVerifiableCredentialTx("did:elastos:iXcRhYB38gMt1phi5JXJMjeXL2TL8cg58y",
+		"revoke", customizedVerifableCredDocBytes, privateKey1Str)
+	err5 := s.validator.checkVerifiableCredential(verifableCredentialRevokeTx, 0, 0)
+	s.NoError(err5)
+
+	batch := s.validator.Store.NewBatch()
+	err := s.validator.Store.PersistVerifiableCredentialTx(batch, []byte("did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB#profile"), verifableCredentialRevokeTx,
+		100, 123456)
+	s.NoError(err)
+	batch.Commit()
+
+	id1 := "iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"
+	privateKey2Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
+	tx1 := getDIDTx(id1, "create", id1DocByts, privateKey1Str)
+
+	batch1 := s.validator.Store.NewBatch()
+	err1 := s.validator.Store.PersistRegisterDIDTx(batch1, []byte("did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym"), tx1,
+		100, 123456)
+	s.NoError(err1)
+	batch1.Commit()
+
+	id2 := "ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
+	tx2 := getDIDTx(id2, "create", id2DocByts, privateKey2Str)
+	batch2 := s.validator.Store.NewBatch()
+	err2 := s.validator.Store.PersistRegisterDIDTx(batch2, []byte("did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"), tx2,
+		100, 123456)
+	s.NoError(err2)
+	batch2.Commit()
+
+	CustomizedDIDTx1 := getCustomizedDIDTx(id1, "create", customizedDIDDocBytes1, privateKey1Str)
+	customizedDID := "did:elastos:foobar"
+	batch3 := s.validator.Store.NewBatch()
+	err3 := s.validator.Store.PersistRegisterDIDTx(batch3, []byte(customizedDID), CustomizedDIDTx1,
+		101, 123456)
+	s.NoError(err3)
+	batch3.Commit()
+
+	verifableCredentialTx := getIDVerifiableCredentialTx("did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym",
+		"declare", customizedVerifableCredDocBytes, privateKey1Str)
+	err = s.validator.checkVerifiableCredential(verifableCredentialTx, 0, 0)
+	s.NoError(err)
+}
+
+// revoke again
+func (s *txValidatorTestSuite) TestDuplicatedRevokeVerifiableCredentialTx() {
+	privateKey2Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
+	verifableCredentialRevokeTx := getIDVerifiableCredentialTx("did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym",
+		"revoke", customizedVerifableCredDocBytes, privateKey2Str)
+	err := s.validator.checkVerifiableCredential(verifableCredentialRevokeTx, 0, 0)
+	s.NoError(err)
+
+	batch := s.validator.Store.NewBatch()
+	err = s.validator.Store.PersistVerifiableCredentialTx(batch, []byte("did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB#profile"), verifableCredentialRevokeTx,
+		100, 123456)
+	s.NoError(err)
+	batch.Commit()
+
+	verifableCredentialRevokeTx2 := getIDVerifiableCredentialTx("did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnym",
+		"revoke", customizedVerifableCredDocBytes, privateKey2Str)
+	err = s.validator.checkVerifiableCredential(verifableCredentialRevokeTx2, 0, 0)
+	s.EqualError(err, "VerifiableCredential revoked again")
 }
 
 //more than  one cotroller
