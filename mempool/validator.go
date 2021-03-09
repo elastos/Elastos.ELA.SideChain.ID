@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -256,20 +255,8 @@ func (v *validator) getDIDPublicKeyByType(verificationMethod string, authenticat
 }
 
 func verificationMethodEqual(verificationMethod string, vcid string) bool {
-	contr1, uriFregment1 := id.GetController(verificationMethod)
-	contr2, uriFregment2 := id.GetController(vcid)
-
-	// todo complete me without uriFregment
-	if contr1 != "" && contr2 != "" && contr1 == contr2 {
-		return true
-	}
-
-	if uriFregment1 == uriFregment2 {
-		return true
-	}
-
-	return false
-	//return uriFregment1 == uriFregment2 && contr1 == contr2
+	equal := verificationMethod == vcid
+	return equal
 }
 
 //authorization []interface{},
@@ -737,7 +724,7 @@ func (v *validator) checkCustomIDVerificationMethod(VerificationMethod string,
 			}
 			//didAddress must equal address in DID
 			if didAddress != id.GetDIDFromUri(DIDDoc.ID) {
-				return errors.New("[ID checkVerificationMethodV1] ID and PublicKeyBase58 not match ")
+				return errors.New("[ID checkCustomIDVerificationMethod] ID and PublicKeyBase58 not match ")
 			}
 			pubkeyCount++
 			break
@@ -765,13 +752,13 @@ func (v *validator) checkCustomIDVerificationMethod(VerificationMethod string,
 				pubkeyCount++
 			}
 		default:
-			return errors.New("[ID checkVerificationMethodV1] invalid  auth.(type)")
+			return errors.New("[ID checkCustomIDVerificationMethod] invalid  auth.(type)")
 		}
 	}
 	if pubkeyCount == 1 {
 		return nil
 	}
-	return errors.New("[ID checkVerificationMethodV1] wrong public key by VerificationMethod ")
+	return errors.New("[ID checkCustomIDVerificationMethod] wrong public key by VerificationMethod ")
 }
 
 func (v *validator) GetLastDIDTxData(issuerDID string) (*id.DIDTransactionData, error) {
@@ -930,16 +917,11 @@ func (v *validator) checkVerifiableCredentials(ID string, VerifiableCredential [
 //check operateion create---->db must not have
 //                 update----->db must have
 func (v *validator) checkDIDOperation(header *id.Header,
-	idUri string) error {
-	did := id.GetDIDFromUri(idUri)
-	if did == "" {
-		return errors.New("WRONG DID FORMAT")
-	}
-
+	DID string) error {
 	buf := new(bytes.Buffer)
-	buf.WriteString(did)
+	buf.WriteString(DID)
 
-	if v.Store.IsDIDDeactivated(did) {
+	if v.Store.IsDIDDeactivated(DID) {
 		return errors.New("DID is deactivated")
 	}
 
@@ -1159,10 +1141,6 @@ func (v *validator) checkDIDAllMethod(ownerDID string, credPayload *id.DIDPayloa
 	//var DIDProofArray []*id.Proof
 	proof := credPayload.Proof
 	if credPayload.Header.Operation == id.Revoke_Verifiable_Credential_Operation {
-		//如果Proof是数组，在revoke的情况下Proof的签名可以是receiver或者issuer的
-		//receiver或者issuer都即可能是did也可能是短名字
-		//则VerificationMethod指定的应该是issuer的key
-		//receiver或者issuer都即可能是did也可能是短名字
 		verifMethod := proof.VerificationMethod
 		if v.isIDVerifMethodMatch(verifMethod, ownerDID) {
 			return &proof, nil
@@ -1273,6 +1251,7 @@ func (v *validator) checkCustomizedDIDVerifiableCredential(signer string, payloa
 	if publicKeyBase58 == "" {
 		return errors.New("checkCustomizedDIDVerifiableCredential Not find proper publicKeyBase58")
 	}
+
 	//check outter signature
 	err = id.CheckSignature(payload, publicKeyBase58, payload.Proof.Signature)
 	if err != nil {
@@ -1446,9 +1425,6 @@ func (v *validator) checkCustomIDInnerProof(DIDProofArray []*id.DocProof, iDateC
 		signature, _ := base64url.DecodeString(CustomizedDIDProof.SignatureValue)
 
 		var success bool
-		fmt.Println("publicKeyBase58 ", publicKeyBase58)
-		fmt.Println("signature ", CustomizedDIDProof.SignatureValue)
-
 		success, err = id.VerifyByVM(iDateContainer, code, signature)
 
 		if err != nil {
@@ -1960,16 +1936,10 @@ func (v *validator) checkRegisterDID(txn *types.Transaction, height uint32, main
 		p.DIDDoc.ID); err != nil {
 		return err
 	}
-	if height < v.didParam.CheckRegisterDIDHeight {
-		if err := v.checkVerificationMethodV0(&p.Proof,
-			p.DIDDoc); err != nil {
-			return err
-		}
-	} else {
-		if err := v.checkVerificationMethodV1(p.Proof.VerificationMethod,
-			p.DIDDoc); err != nil {
-			return err
-		}
+
+	if err := v.checkVerificationMethodV1(p.Proof.VerificationMethod,
+		p.DIDDoc); err != nil {
+		return err
 	}
 	// todo checkVerificationMethodV2 use pubkeyCount++
 
@@ -1998,12 +1968,10 @@ func (v *validator) checkRegisterDID(txn *types.Transaction, height uint32, main
 	if !success {
 		return errors.New("checkDIDTransaction [VM]  Check Sig FALSE")
 	}
-	if height >= v.didParam.VerifiableCredentialHeight {
-		doc := p.DIDDoc
-		if err = v.checkVerifiableCredentials(doc.ID, doc.VerifiableCredential,
-			doc.Authentication, doc.PublicKey, nil); err != nil {
-			return err
-		}
+	doc := p.DIDDoc
+	if err = v.checkVerifiableCredentials(doc.ID, doc.VerifiableCredential,
+		doc.Authentication, doc.PublicKey, nil); err != nil {
+		return err
 	}
 	return nil
 }

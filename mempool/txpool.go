@@ -39,13 +39,7 @@ func checkDIDTransaction(chain *blockchain.BlockChain, tx *sctype.Transaction) (
 		return p.DIDDoc.ID, nil
 
 	case types.Deactivate_DID_Operation:
-		var did string
-		if types.IsURIHasPrefix(p.Payload) {
-			did = types.GetDIDFromUri(p.Payload)
-		} else {
-			did = p.Payload
-		}
-		return did, nil
+		return p.Payload, nil
 
 	case types.Declare_Verifiable_Credential_Operation, types.Revoke_Verifiable_Credential_Operation:
 		return p.CredentialDoc.ID, nil
