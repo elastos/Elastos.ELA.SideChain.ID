@@ -210,14 +210,7 @@ func (s *HttpService) ResolveCredential(param http.Params) (interface{}, error) 
 	if !ok {
 		return nil, http.NewError(int(service.InvalidParams), "id is null")
 	}
-	var credentialID string
-	//remove DID_ELASTOS_PREFIX
-	if id.IsURIHasPrefix(idParam) {
-		credentialID = id.GetDIDFromUri(idParam)
-	} else {
-		credentialID = idParam
-	}
-
+	credentialID := idParam
 	buf := new(bytes.Buffer)
 	buf.WriteString(credentialID)
 	txsData, _ := s.store.GetAllVerifiableCredentialTxData(buf.Bytes())
@@ -229,12 +222,7 @@ func (s *HttpService) ResolveCredential(param http.Params) (interface{}, error) 
 			return RpcCredentialPayloadDIDInfo{ID: credentialID, Status: CredentialNonExist}, nil
 		}
 	} else {
-		//remove DID_ELASTOS_PREFIX
-		if id.IsURIHasPrefix(issuer) {
-			issuerID = id.GetDIDFromUri(issuer)
-		} else {
-			issuerID = idParam
-		}
+		issuerID = issuer
 	}
 
 	var rpcPayloadDid RpcCredentialPayloadDIDInfo
@@ -287,13 +275,7 @@ func (s *HttpService) ResolveDID(param http.Params) (interface{}, error) {
 		return nil, http.NewError(int(service.InvalidParams), "did is null")
 	}
 
-	var did string
-	//remove DID_ELASTOS_PREFIX
-	if id.IsURIHasPrefix(idParam) {
-		did = id.GetDIDFromUri(idParam)
-	} else {
-		did = idParam
-	}
+	did := idParam
 
 	//check is valid address
 	_, err := common.Uint168FromAddress(did)
@@ -331,11 +313,6 @@ func (s *HttpService) ResolveDID(param http.Params) (interface{}, error) {
 		}
 
 	} else {
-		//txData, err := s.store.GetLastDIDTxData(buf.Bytes())
-		//if err != nil {
-		//	return nil, http.NewError(int(service.InternalError),
-		//		"get did transactions failed")
-		//}
 		if txData != nil {
 			txsData = append(txsData, *txData)
 		}

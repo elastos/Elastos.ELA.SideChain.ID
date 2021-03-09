@@ -92,7 +92,7 @@ func (c *IDChainStore) persistTransactions(batch database.Batch, b *types.Block)
 				}
 
 			case id.Deactivate_DID_Operation:
-				id := id.GetDIDFromUri(p.Payload)
+				id := p.Payload
 				if id == "" {
 					return errors.New("invalid deactivate DID")
 				}
@@ -151,26 +151,17 @@ func (c *IDChainStore) rollbackTransactions(batch database.Batch, b *types.Block
 			switch p.Header.Operation {
 			case id.Create_DID_Operation, id.Update_DID_Operation, id.Transfer_DID_Operation:
 				regPayload := txn.Payload.(*id.DIDPayload)
-				id := id.GetDIDFromUri(regPayload.DIDDoc.ID)
-				if id == "" {
-					return errors.New("invalid regPayload.DIDDoc.ID")
-				}
+				id := regPayload.DIDDoc.ID
 				if err := c.rollbackRegisterDIDTx(batch, []byte(id), txn); err != nil {
 					return err
 				}
 			case id.Deactivate_DID_Operation:
-				id := id.GetDIDFromUri(p.Payload)
-				if id == "" {
-					return errors.New("invalid deactivateDID.Payload")
-				}
+				id := p.Payload
 				if err := c.rollbackDeactivateDIDTx(batch, []byte(id), txn); err != nil {
 					return err
 				}
 			case id.Declare_Verifiable_Credential_Operation, id.Revoke_Verifiable_Credential_Operation:
 				id := p.CredentialDoc.ID
-				if id == "" {
-					return errors.New("verifiableCredential.DIDDoc.ID")
-				}
 				if err := c.rollbackVerifiableCredentialTx(batch, []byte(id), txn); err != nil {
 					return err
 				}

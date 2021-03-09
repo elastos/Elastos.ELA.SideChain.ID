@@ -75,7 +75,6 @@ type configParams struct {
 	CRClaimDPOSNodeStartHeight  uint32
 	NewP2PProtocolVersionHeight uint64
 	RewardMinerOnlyStartHeight  uint32
-	VerifiableCredentialHeight  uint32
 	CheckRegisterDIDHeight      uint32
 	CustomIDFeeRate             common.Fixed64
 }
@@ -163,15 +162,11 @@ func loadConfig() *configParams {
 	if cfg.InstantBlock {
 		params.InstantBlock(activeNetParams)
 	}
-	if cfg.VerifiableCredentialHeight > 0 {
-		didParams.VerifiableCredentialHeight = cfg.VerifiableCredentialHeight
-	}
+
 	if cfg.CustomIDFeeRate > 0 {
 		didParams.CustomIDFeeRate = cfg.CustomIDFeeRate
 	}
-	if cfg.CheckRegisterDIDHeight > 0 {
-		didParams.CheckRegisterDIDHeight = cfg.CheckRegisterDIDHeight
-	}
+
 	if cfg.CRClaimDPOSNodeStartHeight > 0 {
 		activeNetParams.CRClaimDPOSNodeStartHeight = cfg.CRClaimDPOSNodeStartHeight
 		spvNetParams.CRClaimDPOSNodeStartHeight = cfg.CRClaimDPOSNodeStartHeight
