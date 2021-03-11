@@ -125,9 +125,11 @@ var (
 	issuerIDDocBytes []byte
 	user1IDDocByts   []byte
 	user2IDDocByts   []byte
+	user3IDDocByts   []byte
 
 	//issuerCompactDocByts      []byte
-	issuerDocByts             []byte
+	issuerDocByts []byte
+
 	custIDSingleSignDocBytes1 []byte
 	examplecorpIDDocBytes     []byte
 
@@ -146,13 +148,14 @@ func init() {
 	issuerIDDocBytes, _ = types.LoadJsonData("./testdata/issuer.id.json")
 	user1IDDocByts, _ = types.LoadJsonData("./testdata/user1.id.json")
 	user2IDDocByts, _ = types.LoadJsonData("./testdata/user2.id.json")
+	user3IDDocByts, _ = types.LoadJsonData("./testdata/user3.id.json")
 
 	//issuerCompactDocByts, _ = types.LoadJsonData("./testdata/issuer.compact.json")
 	issuerDocByts, _ = types.LoadJsonData("./testdata/issuer.json")
 	custIDSingleSignDocBytes1, _ = types.LoadJsonData("./testdata/customized_did_single_sign.json")
 	examplecorpIDDocBytes, _ = types.LoadJsonData("./testdata/examplecorp.id.json") //
 
-	fooIDDocBytes, _ = types.LoadJsonData("./testdata/foo.id.json")
+	fooIDDocBytes, _ = types.LoadJsonData("./testdata/foobar.id.json")
 	custIDVerifCredDocBytes, _ = types.LoadJsonData("./testdata/customized_did_verifiable_credential.json")
 	didVerifCred, _ = types.LoadJsonData("./testdata/did_verifiable_credential.json")
 	custIDVerifyCredContrl, _ = types.LoadJsonData("./testdata/customized_did_verifiable_credential_controllers.json")
@@ -750,7 +753,6 @@ func (s *txValidatorTestSuite) TestCustomizedDIDMultSign() {
 	idUser1 := "did:elastos:iXcRhYB38gMt1phi5JXJMjeXL2TL8cg58y"
 	privateKeyUser1Str := "3z2QFDJE7woSUzL6az9sCB1jkZtzfvEZQtUnYVgQEebS"
 	tx1 := getDIDTx(idUser1, "create", user1IDDocByts, privateKeyUser1Str)
-
 	batch := s.validator.Store.NewBatch()
 	err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte(idUser1), tx1,
 		100, 123456)
@@ -765,6 +767,45 @@ func (s *txValidatorTestSuite) TestCustomizedDIDMultSign() {
 		100, 123456)
 	s.NoError(err2)
 	batch2.Commit()
+
+	//////////////////////////////////////
+	privateKey3Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
+	id3 := "did:elastos:igXiyCJEUjGJV1DMsMa4EbWunQqVg97GcS"
+	tx3 := getDIDTx(id3, "create", user3IDDocByts, privateKey3Str)
+	batch3 := s.validator.Store.NewBatch()
+	err3 := s.validator.Store.PersistRegisterDIDTx(batch3, []byte(id3), tx3,
+		100, 123456)
+	s.NoError(err3)
+	batch3.Commit()
+
+	id2 := "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
+	privateKey2Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
+	tx0 := getDIDTx(id2, "create", issuerDocByts, privateKey2Str)
+	batch4 := s.validator.Store.NewBatch()
+	err0 := s.validator.Store.PersistRegisterDIDTx(batch4, []byte("did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"), tx0,
+		100, 123456)
+	s.NoError(err0)
+	batch4.Commit()
+
+	id5 := "did:elastos:imUUPBfrZ1yZx6nWXe6LNN59VeX2E6PPKj"
+	privateKey5Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
+	tx5 := getDIDTx(id5, "create", examplecorpIDDocBytes, privateKey5Str)
+	batch5 := s.validator.Store.NewBatch()
+	err5 := s.validator.Store.PersistRegisterDIDTx(batch5, []byte(id5), tx5,
+		100, 123456)
+	s.NoError(err5)
+	batch5.Commit()
+
+	id6 := "did:elastos:example"
+	privateKey6Str := "413uivqLEMjPd8bo42K9ic6VXpgYcJLEwB3vefxJDhXJ" //413uivqLEMjPd8bo42K9ic6VXpgYcJLEwB3vefxJDhXJ
+	tx6 := getDIDTx(id6, "create", issuerIDDocBytes, privateKey6Str)
+	batch6 := s.validator.Store.NewBatch()
+	err6 := s.validator.Store.PersistRegisterDIDTx(batch6, []byte(id6), tx6,
+		100, 123456)
+	s.NoError(err6)
+	batch6.Commit()
+
+	//////////////////////////////////////
 
 	CustomizedDIDTx2 := getCustomizedDIDTxMultSign(idUser1, idUser2, "create", fooIDDocBytes,
 		privateKeyUser1Str, privateKeyUser2Str)
@@ -787,6 +828,18 @@ func (s *txValidatorTestSuite) Test0DIDVerifiableCredentialTx() {
 		100, 123456)
 	s.NoError(err2)
 	batch2.Commit()
+	//////////////////////////////////////
+	privateKey3Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
+	//id2 := "ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
+	id3 := "did:elastos:igXiyCJEUjGJV1DMsMa4EbWunQqVg97GcS"
+	tx3 := getDIDTx(id3, "create", user3IDDocByts, privateKey3Str)
+	batch3 := s.validator.Store.NewBatch()
+	err3 := s.validator.Store.PersistRegisterDIDTx(batch3, []byte(id3), tx3,
+		100, 123456)
+	s.NoError(err3)
+	batch3.Commit()
+	//////////////////////////////////////
+
 	//did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB
 	verifableCredentialTx := getIDVerifiableCredentialTx("did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB",
 		"declare",
@@ -999,7 +1052,6 @@ func (s *txValidatorTestSuite) TestCustomizedDIDVerifiableCredentialTx2() {
 	idUser1 := "did:elastos:iXcRhYB38gMt1phi5JXJMjeXL2TL8cg58y"
 	privateKeyUser1Str := "3z2QFDJE7woSUzL6az9sCB1jkZtzfvEZQtUnYVgQEebS"
 	tx1 := getDIDTx(idUser1, "create", user1IDDocByts, privateKeyUser1Str)
-
 	batch := s.validator.Store.NewBatch()
 	err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte(idUser1), tx1,
 		100, 123456)
