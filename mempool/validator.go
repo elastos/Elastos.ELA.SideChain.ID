@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -286,8 +285,6 @@ func (v *validator) getCustomizedIDPublicKey(verificationMethod string, publicKe
 				if verificationMethodEqual(verificationMethod, didPublicKeyInfo.ID) {
 					return didPublicKeyInfo.PublicKeyBase58, nil
 				}
-				//default:
-				//	return "", nil
 			}
 		}
 	}
@@ -360,8 +357,6 @@ func (v *validator) getDIDDeactivateKey(verificationMethod string, authenticatio
 			if verificationMethod == didPublicKeyInfo.ID {
 				return didPublicKeyInfo.PublicKeyBase58, nil
 			}
-			//default:
-			//	return "", nil
 		}
 	}
 	for _, auth := range authorization {
@@ -389,8 +384,6 @@ func (v *validator) getDIDDeactivateKey(verificationMethod string, authenticatio
 			if verificationMethod == didPublicKeyInfo.ID {
 				return didPublicKeyInfo.PublicKeyBase58, nil
 			}
-			//default:
-			//	return "", nil
 		}
 	}
 	return "", nil
@@ -440,8 +433,6 @@ func (v *validator) getDIDAutheneKey(verificationMethod string, authentication [
 			if verificationMethodEqual(verificationMethod, didPublicKeyInfo.ID) {
 				return didPublicKeyInfo.PublicKeyBase58, nil
 			}
-			//default:
-			//	return "", nil
 		}
 	}
 	return "", nil
@@ -647,8 +638,6 @@ func (v *validator) IsVerifMethCustIDAuthKey(VerificationMethod, ID string,
 				if verificationMethodEqual(VerificationMethod, didPublicKeyInfo.ID) {
 					return true
 				}
-				//default:
-				//	return false
 			}
 		}
 	} else {
@@ -1426,9 +1415,6 @@ func (v *validator) checkCustomIDInnerProof(DIDProofArray []*id.DocProof, iDateC
 		signature, _ := base64url.DecodeString(CustomizedDIDProof.SignatureValue)
 
 		var success bool
-		fmt.Println("r iDateContainer.GetData() ", string(iDateContainer.GetData()))
-		fmt.Println("r CustomizedDIDProof.Signature ", CustomizedDIDProof.SignatureValue)
-		fmt.Println("r publicKeyBase58 ", publicKeyBase58)
 		success, err = id.VerifyByVM(iDateContainer, code, signature)
 
 		if err != nil {
