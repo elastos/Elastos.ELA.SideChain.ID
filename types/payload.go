@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"github.com/elastos/Elastos.ELA.SideChain.ID/types/base64url"
-	"github.com/elastos/Elastos.ELA/common"
 	"io"
+
+	"github.com/elastos/Elastos.ELA/common"
+
+	"github.com/elastos/Elastos.ELA.SideChain.ID/didjson"
+	"github.com/elastos/Elastos.ELA.SideChain.ID/types/base64url"
 )
 
 const DIDVersion = 0x00
@@ -147,9 +150,12 @@ func (p *DIDPayload) GetData() []byte {
 	case Update_DID_Operation:
 		dataString = p.Header.Specification + p.Header.Operation + p.Header.
 			PreviousTxid + p.Payload
-
-	case Create_DID_Operation, Transfer_DID_Operation, Deactivate_DID_Operation:
-		dataString = p.Header.Specification + p.Header.Operation + p.Payload
+	case Transfer_DID_Operation:
+		dataString = p.Header.Specification + p.Header.Operation + p.Header.
+			PreviousTxid + string(p.Ticket.GetData()) + p.Payload
+	case Create_DID_Operation, Deactivate_DID_Operation:
+		dataString = p.Header.Specification + p.Header.Operation + p.Header.
+			PreviousTxid + p.Payload
 
 	case Declare_Verifiable_Credential_Operation, Revoke_Verifiable_Credential_Operation:
 		dataString = p.Header.Specification + p.Header.Operation + p.Payload
@@ -213,11 +219,22 @@ func (d *Header) Deserialize(r io.Reader, version byte) error {
 	return nil
 }
 
+type CustomIDTicketData struct {
+	CustomID      string `json:"id"`
+	To            string `json:"to"`
+	TransactionID string `json:"txid"`
+}
 type CustomIDTicket struct {
-	CustomID      string      `json:"id"`
-	To            string      `json:"to"`
-	TransactionID string      `json:"txid"`
-	Proof         interface{} `json:"proof"`
+	*CustomIDTicketData
+	Proof interface{} `json:"proof"`
+}
+
+func (c *CustomIDTicketData) GetData() []byte {
+	data, err := didjson.Marshal(c)
+	if err != nil {
+		return nil
+	}
+	return data
 }
 
 func (c *CustomIDTicket) GetData() []byte {
