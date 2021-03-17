@@ -1287,12 +1287,7 @@ func (v *validator) checkDeclareVerifiableCredential(payload *id.DIDPayload) err
 		return err
 	}
 
-	////todo This customized did and register did are mutually exclusive
 	////todo check expires
-
-	// if it is "create" use now m/n and public key otherwise use last time m/n and public key
-	// get credential target ID , Authentication , PublicKey, m,n of multisign   (isDID/customized did)
-	//
 	ok, err := v.Store.IsDID(receiverID)
 	if err != nil {
 		return err
@@ -1348,21 +1343,19 @@ func (v *validator) getVerifyDocMultisign(customizedID string) (*id.DIDDoc, erro
 }
 
 func (v *validator) checkCustomIDTicketProof(ticketProofArray []*id.TicketProof, iDateContainer interfaces.IDataContainer,
-	N int, verifyDoc *id.DIDDoc) error {
+	M int, verifyDoc *id.DIDDoc) error {
 	isDID := id.IsDID(verifyDoc.ID, verifyDoc.PublicKey)
 	verifyOkCount := 0
 	//3, proof multisign verify
 	for _, ticketProof := range ticketProofArray {
 		//get  public key
-		//publicKeyBase58, _ := v.getPublicKeyByVerificationMethod(ticketProof.VerificationMethod, verifyDoc.ID,
-		//	verifyDoc.PublicKey, verifyDoc.Authentication, verifyDoc.Controller)
-		//
 		publicKeyBase58, _ := v.getAuthenPublicKey(ticketProof.VerificationMethod, isDID,
 			verifyDoc.PublicKey, verifyDoc.Authentication, verifyDoc.Controller)
 
 		if publicKeyBase58 == "" {
 			return errors.New("checkCustomIDTicketProof Not find proper publicKeyBase58")
 		}
+
 		//get code
 		//var publicKeyByte []byte
 		publicKeyByte := base58.Decode(publicKeyBase58)
@@ -1385,15 +1378,15 @@ func (v *validator) checkCustomIDTicketProof(ticketProofArray []*id.TicketProof,
 		}
 		verifyOkCount++
 	}
-	if verifyOkCount < N {
-		return errors.New("[VM] Check Sig FALSE verifyOkCount < N")
+	if verifyOkCount < M {
+		return errors.New("[VM] Check Sig FALSE verifyOkCount < M")
 	}
 	return nil
 }
 
 //3, proof multisign verify
 func (v *validator) checkCustomIDInnerProof(DIDProofArray []*id.DocProof, iDateContainer interfaces.IDataContainer,
-	N int, verifyDoc *id.DIDDoc) error {
+	M int, verifyDoc *id.DIDDoc) error {
 	verifyOkCount := 0
 	//3, proof multisign verify
 	for _, CustomizedDIDProof := range DIDProofArray {
@@ -1425,8 +1418,8 @@ func (v *validator) checkCustomIDInnerProof(DIDProofArray []*id.DocProof, iDateC
 		}
 		verifyOkCount++
 	}
-	if verifyOkCount < N {
-		return errors.New("[VM] Check Sig FALSE verifyOkCount < N")
+	if verifyOkCount < M {
+		return errors.New("[VM] Check Sig FALSE verifyOkCount < M")
 	}
 	return nil
 }
@@ -1440,7 +1433,9 @@ func (v *validator) checkCustomizedDIDAvailable(cPayload *id.DIDPayload) error {
 	if err != nil {
 		return err
 	}
-
+	if reservedCustomIDs == nil || len(reservedCustomIDs) == 0 {
+		return nil
+	}
 	if _, ok := reservedCustomIDs[cPayload.DIDDoc.ID]; ok {
 		if customDID, ok := receivedCustomIDs[cPayload.DIDDoc.ID]; ok {
 			rcDID, err := customDID.ToAddress()
@@ -1496,7 +1491,6 @@ func (v *validator) checkCustomizedDIDAvailable(cPayload *id.DIDPayload) error {
 
 func (v *validator) checkTicketAvailable(cPayload *id.DIDPayload,
 	customID string, lastTxHash string, N int, verifyDoc *id.DIDDoc) error {
-	// check customID
 	if cPayload.Ticket.CustomID != customID {
 		return errors.New("invalid ID in ticket")
 	}
@@ -1531,7 +1525,8 @@ func (v *validator) checkTicketAvailable(cPayload *id.DIDPayload,
 		}
 
 	} else if err := Unmarshal(cPayload.DIDDoc.Proof, customizedDIDProof); err == nil {
-		if customizedDIDProof.Creator == to {
+		contrID, _ := id.GetController(customizedDIDProof.Creator) // check customID
+		if contrID == to {
 			existInProof = true
 		}
 	}
@@ -1559,7 +1554,7 @@ func (v *validator) checkTicketProof(ticket *id.CustomIDTicket, N int,
 		return err
 	}
 
-	err = v.checkCustomIDTicketProof(ticketProofArray, ticket, N, verifyDoc)
+	err = v.checkCustomIDTicketProof(ticketProofArray, ticket.CustomIDTicketData, N, verifyDoc)
 	if err != nil {
 		return err
 	}
@@ -1633,34 +1628,41 @@ func getCustomizedDIDLenFactor(ID string) float64 {
 		return 1200
 	} else if len <= 32 {
 		//100 - [(n-1) / 8 ]
-		return 100 - ((float64(len) - 1) / 8)
+		return 100 - float64((len-1)/8)
 	} else if len <= 64 {
 		//93 + [(n-1) / 8 ]
-		return 93 + ((float64(len) - 1) / 8)
+		return 93 + float64((len-1)/8)
 	} else {
 		//100 * (n-59) / 3
 		return 100 * ((float64(len) - 59) / 2)
 	}
 }
 
+func getDays(t1, t2 time.Time) int64 {
+	t1Unix := t1.Unix()
+	t2Unix := t2.Unix()
+	return (t1Unix - t2Unix) / (24 * 3600)
+}
+
+func getYears(t1, t2 time.Time) float64 {
+	t1Unix := t1.Unix()
+	t2Unix := t2.Unix()
+	return math.Abs(float64(t1Unix-t2Unix) / (365 * 24 * 3600))
+}
+
 func (v *validator) getValidPeriodFactor(Expires string) float64 {
-
 	expiresTime, _ := time.Parse(time.RFC3339, Expires)
-	days := expiresTime.Day() - v.Chain.MedianTimePast.Day()
+	days := getDays(expiresTime, v.Chain.MedianTimePast)
 	if days < 180 {
-		expiresTime.Add(180 * 24 * time.Hour)
+		days += 180
 	}
+	years := float64(days) / 365
 
-	years := float64(expiresTime.Year() - v.Chain.MedianTimePast.Year())
-
-	if years <= 0 {
-		return 1
-	}
 	lifeRate := float64(0)
 	if years < 1 {
-		lifeRate = float64(years * ((100 - 3*math.Log2(1)) / 100))
+		lifeRate = years * ((100 - (3 * math.Log2(1))) / 100)
 	} else {
-		lifeRate = float64(years * ((100 - 3*math.Log2(years)) / 100))
+		lifeRate = years * ((100 - (3 * math.Log2(years))) / 100)
 	}
 	return lifeRate
 
@@ -1694,7 +1696,7 @@ func getSizeFactor(payLoadSize int) float64 {
 	} else if payLoadSize <= 32*1024 {
 		factor = math.Log10(float64(payLoadSize/1024))/2 + 1
 	} else {
-		factor = float64(payLoadSize/1024)*0.9*math.Log10(float64(payLoadSize/1024)) - 33.4
+		factor = math.Pow(float64(payLoadSize/1024), 0.9)*math.Log10(float64(payLoadSize/1024)) - 33.4
 	}
 	return factor
 }
@@ -1709,14 +1711,14 @@ func getControllerFactor(controller interface{}) float64 {
 			return float64(controllerLen)
 		}
 		//M=2**(m+3)
-		return 2 * (float64(controllerLen) + 3)
+		return math.Pow(2, float64(controllerLen+3))
 	}
 	return 1
 
 }
 
 //Payload
-//ID  Expires Controller Operation Payload interface
+//ID  Expires  Controller Operation Payload interface
 func (v *validator) getIDTxFee(customID, expires, operation string, controller interface{}, payloadLen int) common.Fixed64 {
 	//A id lenght
 	A := getCustomizedDIDLenFactor(customID)
@@ -1795,10 +1797,10 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 	//todo This custoized did and register did are mutually exclusive
 	//todo check expires
 
-	N := 0
+	M := 0
 	multisignStr := verifyDoc.MultiSig
 	if multisignStr != "" {
-		_, N, err = GetMultisignMN(multisignStr)
+		M, _, err = GetMultisignMN(multisignStr)
 		if err != nil {
 			return err
 		}
@@ -1812,8 +1814,12 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 		if err != nil {
 			return err
 		}
+		M, _, err := GetMultisignMN(lastTx.Operation.DIDDoc.MultiSig)
+		if err != nil {
+			return err
+		}
 		if err := v.checkTicketAvailable(customizedDIDPayload,
-			verifyDoc.ID, lastTx.TXID, N, verifyDoc); err != nil {
+			verifyDoc.ID, lastTx.TXID, M, lastTx.Operation.DIDDoc); err != nil {
 			return err
 		}
 	}
@@ -1838,7 +1844,7 @@ func (v *validator) checkCustomizedDID(txn *types.Transaction, height uint32, ma
 		return err
 	}
 	//4, proof multisign verify
-	err = v.checkCustomIDInnerProof(DIDProofArray, customizedDIDPayload.DIDDoc.DIDPayloadData, N, verifyDoc)
+	err = v.checkCustomIDInnerProof(DIDProofArray, customizedDIDPayload.DIDDoc.DIDPayloadData, M, verifyDoc)
 	if err != nil {
 		return err
 	}
