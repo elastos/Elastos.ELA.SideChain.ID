@@ -26,6 +26,8 @@ var (
 	// activeNetParams defines the side chain network parameters.
 	activeNetParams = &params.MainNetParams
 
+	didParams = &params.MainNetDIDParams
+
 	// defaultConfig defines the default configuration parameters.
 	defaultConfig = configParams{
 		LogLevel: defaultLogLevel,
@@ -57,6 +59,7 @@ type configParams struct {
 	RPCUser                     string
 	RPCPass                     string
 	RPCWhiteList                []string
+	RPCServiceLevel             string
 	LogLevel                    elalog.Level
 	LogsFolderSize              int64
 	PerLogFileSize              int64
@@ -72,6 +75,7 @@ type configParams struct {
 	CRClaimDPOSNodeStartHeight  uint32
 	NewP2PProtocolVersionHeight uint64
 	RewardMinerOnlyStartHeight  uint32
+	VeriﬁableCredentialHeight   uint32
 }
 
 // loadConfigFile read configuration parameters through the config.json file.
@@ -98,17 +102,19 @@ func loadConfig() *configParams {
 		testNetDefault(cfg)
 		spvNetParams = config.DefaultParams.TestNet()
 		activeNetParams = &params.TestNetParams
+		didParams = &params.TestNetDIDParams
 
 	case "regnet", "reg", "r":
 		regNetDefault(cfg)
 		spvNetParams = config.DefaultParams.RegNet()
 		activeNetParams = &params.RegNetParams
+		didParams = &params.RegNetDIDParams
 
 	default:
 		mainNetDefault(cfg)
 		spvNetParams = &config.DefaultParams
 		activeNetParams = &params.MainNetParams
-
+		didParams = &params.MainNetDIDParams
 	}
 
 	if cfg.Magic > 0 {
@@ -154,6 +160,9 @@ func loadConfig() *configParams {
 	}
 	if cfg.InstantBlock {
 		params.InstantBlock(activeNetParams)
+	}
+	if cfg.VeriﬁableCredentialHeight > 0 {
+		didParams.VeriﬁableCredentialHeight = cfg.VeriﬁableCredentialHeight
 	}
 	if cfg.CRClaimDPOSNodeStartHeight > 0 {
 		activeNetParams.CRClaimDPOSNodeStartHeight = cfg.CRClaimDPOSNodeStartHeight

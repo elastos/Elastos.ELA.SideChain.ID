@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/suite"
 
 	bc "github.com/elastos/Elastos.ELA.SideChain.ID/blockchain"
+	"github.com/elastos/Elastos.ELA.SideChain.ID/didjson"
 	"github.com/elastos/Elastos.ELA.SideChain.ID/params"
 	"github.com/elastos/Elastos.ELA.SideChain.ID/types"
 	"github.com/elastos/Elastos.ELA.SideChain.ID/types/base64url"
@@ -38,8 +40,11 @@ func (s *txValidatorTestSuite) SetupSuite() {
 	cfg := &mempool.Config{
 		ChainParams: &config.Params{},
 	}
-	s.validator.Validator = NewValidator(cfg, nil)
-	s.validator.Store = idChainStore
+	didParams := params.DIDParams{
+		CheckRegisterDIDHeight:    0,
+		VeriﬁableCredentialHeight: 0,
+	}
+	s.validator = *NewValidator(cfg, idChainStore, &didParams)
 }
 
 func TestTxValidatorTest(t *testing.T) {
@@ -70,6 +75,18 @@ const (
 	operationCreate   = "create"
 	operationUpdate   = "update"
 )
+
+var (
+	id1DocByts []byte
+	id2DocByts []byte
+	id3DocByts []byte
+)
+
+func init() {
+	id1DocByts, _ = types.LoadJsonData("./testdata/document.compact.json")
+	id2DocByts, _ = types.LoadJsonData("./testdata/issuer.compact.json")
+	id3DocByts, _ = types.LoadJsonData("./testdata/issuer.json")
+}
 
 var didPayloadBytes = []byte(
 	`{
@@ -135,43 +152,43 @@ func (s *txValidatorTestSuite) TestIDChainStore_CreateDIDTx() {
 	i, _ := getDIDByPublicKey(data)
 	didAddress, _ := i.ToAddress()
 	fmt.Println("didAddress", didAddress)
-	err := s.validator.checkRegisterDID(tx)
+	err := s.validator.checkRegisterDID(tx, 0, 0)
 	s.NoError(err)
 
 	info := new(types.Operation)
-	json.Unmarshal(didPayloadInfoBytes, info)
+	didjson.Unmarshal(didPayloadInfoBytes, info)
 
 	payloadBase64, _ := base64url.DecodeString(info.Payload)
 	payloadInfo := new(types.DIDPayloadInfo)
-	json.Unmarshal(payloadBase64, payloadInfo)
+	didjson.Unmarshal(payloadBase64, payloadInfo)
 	info.PayloadInfo = payloadInfo
 
 	tx.Payload = info
-	err = s.validator.checkRegisterDID(tx)
+	err = s.validator.checkRegisterDID(tx, 0, 0)
 	s.NoError(err)
 
 	info.PayloadInfo.Expires = "Mon Jan _2 15:04:05 2006"
-	err = s.validator.checkRegisterDID(tx)
+	err = s.validator.checkRegisterDID(tx, 0, 0)
 	s.Error(err, "invalid Expires")
 
 	info.PayloadInfo.Expires = "2006-01-02T15:04:05Z07:00"
-	err = s.validator.checkRegisterDID(tx)
+	err = s.validator.checkRegisterDID(tx, 0, 0)
 	s.Error(err, "invalid Expires")
 
 	info.PayloadInfo.Expires = "2018-06-30T12:00:00Z"
-	err = s.validator.checkRegisterDID(tx)
+	err = s.validator.checkRegisterDID(tx, 0, 0)
 	s.NoError(err)
 
 	info = new(types.Operation)
-	json.Unmarshal(errDIDPayloadInfoBytes, info)
+	didjson.Unmarshal(errDIDPayloadInfoBytes, info)
 
 	payloadBase64, _ = base64url.DecodeString(info.Payload)
 	payloadInfo = new(types.DIDPayloadInfo)
-	json.Unmarshal(payloadBase64, payloadInfo)
+	didjson.Unmarshal(payloadBase64, payloadInfo)
 	info.PayloadInfo = payloadInfo
 
 	tx.Payload = info
-	err = s.validator.checkRegisterDID(tx)
+	err = s.validator.checkRegisterDID(tx, 0, 0)
 	s.Error(err, "invalid Expires")
 }
 
@@ -187,7 +204,7 @@ func (s *txValidatorTestSuite) TestGetIDFromUri() {
 
 func getPayloadCreateDID() *types.Operation {
 	info := new(types.DIDPayloadInfo)
-	json.Unmarshal(didPayloadBytes, info)
+	didjson.Unmarshal(didPayloadBytes, info)
 
 	p := &types.Operation{
 		Header: types.DIDHeaderInfo{
@@ -210,7 +227,7 @@ func getPayloadCreateDID() *types.Operation {
 
 func getPayloadUpdateDID() *types.Operation {
 	info := new(types.DIDPayloadInfo)
-	json.Unmarshal(didPayloadBytes, info)
+	didjson.Unmarshal(didPayloadBytes, info)
 
 	return &types.Operation{
 		Header: types.DIDHeaderInfo{
@@ -233,54 +250,27 @@ func randomString() string {
 	return common.BytesToHexString(a)
 }
 
-func getDIDPayloadBytes(id string) []byte {
-	return []byte(
-		"{" +
-			"\"id\": \"did:elastos:" + id + "\"," +
-			"\"publicKey\": [{" +
-			"\"id\": \"did:elastos:" + id + "\"," +
-			"\"type\": \"ECDSAsecp256r1\"," +
-			"\"controller\": \"did:elastos:" + id + "\"," +
-			"\"publicKeyBase58\": \"zxt6NyoorFUFMXA8mDBULjnuH3v6iNdZm42PyG4c1YdC\"" +
-			"}]," +
-			"\"authentication\": [" +
-			"\"did:elastos:" + id + "\"" +
-			"]," +
-			"\"authorization\": [" +
-			"\"did:elastos:" + id + "\"" +
-			"]," +
-			"\"expires\": \"2020-08-15T17:00:00Z\"" +
-			"}",
-	)
-}
-
-func getPayloadDIDInfo(id string, didOperation string) *types.Operation {
-	pBytes := getDIDPayloadBytes(id)
+func getPayloadDIDInfo(id string, didOperation string, docBytes []byte, privateKeyStr string) *types.Operation {
+	//pBytes := getDIDPayloadBytes(id)
 	info := new(types.DIDPayloadInfo)
-	json.Unmarshal(pBytes, info)
+	json.Unmarshal(docBytes, info)
 	p := &types.Operation{
 		Header: types.DIDHeaderInfo{
 			Specification: "elastos/did/1.0",
 			Operation:     didOperation,
 		},
-		Payload: base64url.EncodeToString(pBytes),
+		Payload: base64url.EncodeToString(docBytes),
 		Proof: types.DIDProofInfo{
 			Type:               "ECDSAsecp256r1",
-			VerificationMethod: "did:elastos:" + id,
+			VerificationMethod: "did:elastos:" + id + "#primary",
 		},
 		PayloadInfo: info,
 	}
+	privateKey1 := base58.Decode(privateKeyStr)
+	//privateKey1, _ := common.HexStringToBytes()
+	sign, _ := crypto.Sign(privateKey1, p.GetData())
+	p.Proof.Signature = base64url.EncodeToString(sign)
 	return p
-}
-
-//didOperation must be create or update
-func getDIDTx(id, didOperation string) *types2.Transaction {
-
-	payloadDidInfo := getPayloadDIDInfo(id, didOperation)
-	txn := new(types2.Transaction)
-	txn.TxType = types.RegisterDID
-	txn.Payload = payloadDidInfo
-	return txn
 }
 
 func (s *txValidatorTestSuite) TestGenrateTxFromRawTxStr() {
@@ -367,5 +357,51 @@ func (s *txValidatorTestSuite) TestGenrateTxFromRawTxStr() {
 		fmt.Println("err2", err2)
 		return
 	}
-	s.validator.checkRegisterDID(&tx)
+	s.validator.checkRegisterDID(&tx, 0, 0)
+}
+
+//didOperation must be create or update
+func getDIDTx(id, didOperation string, docBytes []byte, privateKeyStr string) *types2.Transaction {
+
+	payloadDidInfo := getPayloadDIDInfo(id, didOperation, docBytes, privateKeyStr)
+	txn := new(types2.Transaction)
+	txn.TxType = types.RegisterDID
+	txn.Payload = payloadDidInfo
+	return txn
+}
+
+func (s *txValidatorTestSuite) TestCheckRegisterDID() {
+
+	id1 := "did:elastos:iWFAUYhTa35c1fPe3iCJvihZHx6quumnyms"
+	privateKey1Str := "41Wji2Bo39wLB6AoUP77ADANaPeDBQLXycp8rzTcgLNW"
+
+	id2 := "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
+	privateKey2Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
+
+	tx2 := getDIDTx(id2, "crate", id2DocByts, privateKey2Str)
+	tx1 := getDIDTx(id1, "crate", id1DocByts, privateKey1Str)
+
+	batch := s.validator.Store.NewBatch()
+	err1 := s.validator.Store.PersistRegisterDIDTx(batch, []byte("ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"), tx2,
+		100, 123456)
+	s.NoError(err1)
+	batch.Commit()
+
+	err2 := s.validator.checkRegisterDID(tx1, 0, 0)
+	s.NoError(err2)
+}
+
+//issuer.json SelfProclaimedCredential
+func (s *txValidatorTestSuite) TestSelfProclaimedCredential() {
+	privateKey3Str := "9sYYMSsS2xDbGvSRhNSnMsTbCbF2LPwLovRH93drSetM"
+	id3 := "did:elastos:ir31cZZbBQUFbp4pNpMQApkAyJ9dno3frB"
+
+	//id3DocBytes
+	tx3 := getDIDTx(id3, "crate", id3DocByts, privateKey3Str)
+	err3 := s.validator.checkRegisterDID(tx3, 0, 0)
+	s.NoError(err3)
+
+	tx3_2 := getDIDTx(id3, "crate", id2DocByts, privateKey3Str)
+	err3_2 := s.validator.checkRegisterDID(tx3_2, 0, 0)
+	s.NoError(err3_2)
 }
