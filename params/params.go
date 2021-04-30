@@ -98,7 +98,7 @@ var (
 
 var MainNetDIDParams = DIDParams{
 	CheckRegisterDIDHeight:    0,
-	VeriﬁableCredentialHeight: 0, //todo
+	VeriﬁableCredentialHeight: 526300,
 }
 
 // MainNetParams defines the network parameters for the main network.
@@ -156,8 +156,8 @@ func testNetParams(cfg config.Params, didParams DIDParams) (config.Params, DIDPa
 	cfg.NewP2PProtocolVersionHeight = 340000
 	cfg.RewardMinerOnlyStartHeight = 340000
 
-	didParams.VeriﬁableCredentialHeight = 420000 //todo
-	didParams.CheckRegisterDIDHeight = 528000
+	didParams.VeriﬁableCredentialHeight = 424240
+	didParams.CheckRegisterDIDHeight = 424240
 	return cfg, didParams
 }
 
@@ -177,8 +177,8 @@ func regNetParams(cfg config.Params, didParams DIDParams) (config.Params, DIDPar
 	cfg.NewP2PProtocolVersionHeight = 203200
 	cfg.RewardMinerOnlyStartHeight = 205000
 
-	didParams.VeriﬁableCredentialHeight = 420000 //todo
-	didParams.CheckRegisterDIDHeight = 528000
+	didParams.VeriﬁableCredentialHeight = 280600
+	didParams.CheckRegisterDIDHeight = 280600
 	return cfg, didParams
 }
 
