@@ -32,10 +32,10 @@ import (
 const (
 	printStateInterval = time.Minute
 
-	DataPath = "elastos_did"
-	DataDir  = "data"
-	ChainDir = "chain"
-	SpvDir   = "spv"
+	DataPath   = "elastos_did"
+	DataDir    = "data"
+	ChainDir   = "chain"
+	SpvDir     = "spv"
 	nodePrefix = "did-"
 )
 
@@ -90,8 +90,8 @@ func main() {
 		ChainParams:    spvNetParams,
 		PermanentPeers: cfg.SPVPermanentPeers,
 		GenesisAddress: genesisAddress,
-		FilterType:     filter.FTNexTTurnDPOSInfo,
-		NodeVersion:    nodePrefix+Version,
+		FilterType:     filter.FTCustomID,
+		NodeVersion:    nodePrefix + Version,
 	}
 	spvService, err := spv.NewService(&spvCfg)
 	if err != nil {
@@ -110,8 +110,8 @@ func main() {
 	}
 	txFeeHelper := mempool.NewFeeHelper(&mempoolCfg)
 	mempoolCfg.FeeHelper = txFeeHelper
-	txValidator := mp.NewValidator(&mempoolCfg, idChainStore)
-	mempoolCfg.Validator = txValidator
+	txValidator := mp.NewValidator(&mempoolCfg, idChainStore, didParams)
+	mempoolCfg.Validator = txValidator.Validator
 
 	chainCfg := blockchain.Config{
 		ChainParams:    activeNetParams,
@@ -137,7 +137,7 @@ func main() {
 		TxMemPool:      txPool,
 		ChainParams:    activeNetParams,
 		PermanentPeers: cfg.PermanentPeers,
-		NodeVersion:    nodePrefix+Version,
+		NodeVersion:    nodePrefix + Version,
 	})
 	if err != nil {
 		eladlog.Fatalf("initialize P2P networks failed, %s", err)
@@ -155,7 +155,7 @@ func main() {
 		Chain:                     chain,
 		TxMemPool:                 txPool,
 		TxFeeHelper:               txFeeHelper,
-		Validator:                 txValidator,
+		Validator:                 txValidator.Validator,
 		CreateCoinBaseTx:          pow.CreateCoinBaseTx,
 		GenerateBlock:             pow.GenerateBlock,
 		GenerateBlockTransactions: pow.GenerateBlockTransactions,
@@ -182,6 +182,7 @@ func main() {
 			PowService:                  powService,
 			SpvService:                  spvService,
 			SetLogLevel:                 setLogLevel,
+			ConfigurationPermitted:      cfg.RPCServiceLevel,
 			GetBlockInfo:                service.GetBlockInfo,
 			GetTransactionInfo:          sv.GetTransactionInfo,
 			GetTransactionInfoFromBytes: sv.GetTransactionInfoFromBytes,
@@ -197,10 +198,10 @@ func main() {
 		WSPort:   cfg.WSPort,
 		Store:    idChainStore,
 	}
-	service := sv.NewHttpService(&serviceCfg)
+	httpService := sv.NewHttpService(&serviceCfg)
 
 	if cfg.EnableRPC {
-		rpcServer := newRPCServer(cfg.RPCPort, service)
+		rpcServer := newRPCServer(cfg.RPCPort, httpService)
 		defer rpcServer.Stop()
 		go func() {
 			if err := rpcServer.Start(); err != nil {
@@ -210,7 +211,7 @@ func main() {
 	}
 
 	if cfg.EnableREST {
-		restServer := newRESTfulServer(cfg.RESTPort, service.HttpService)
+		restServer := newRESTfulServer(cfg.RESTPort, httpService.HttpService)
 		defer restServer.Stop()
 		go func() {
 			if err := restServer.Start(); err != nil {
@@ -220,7 +221,7 @@ func main() {
 	}
 
 	if cfg.EnableWS {
-		wsServer := newWebSocketServer(cfg.WSPort, service.HttpService, &serviceCfg.Config)
+		wsServer := newWebSocketServer(cfg.WSPort, httpService.HttpService, &serviceCfg.Config)
 		defer wsServer.Stop()
 		go func() {
 			if err := wsServer.Start(); err != nil {

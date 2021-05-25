@@ -12,6 +12,14 @@ import (
 	"github.com/elastos/Elastos.ELA/core/types/payload"
 )
 
+type DIDParams struct {
+	// CheckRegisterDIDHeight defines the height to check RegisterDID transactions.
+	CheckRegisterDIDHeight uint32
+
+	//VeriﬁableCredentialHeight defines the height to VeriﬁableCredential.
+	VeriﬁableCredentialHeight uint32
+}
+
 // These variables are the chain consensus parameters.
 var (
 	// elaAsset is the transaction that create and register the ELA coin.
@@ -88,6 +96,11 @@ var (
 	}
 )
 
+var MainNetDIDParams = DIDParams{
+	CheckRegisterDIDHeight:    0,
+	VeriﬁableCredentialHeight: 526300,
+}
+
 // MainNetParams defines the network parameters for the main network.
 var MainNetParams = config.Params{
 	Name:        "mainnet",
@@ -117,18 +130,18 @@ var MainNetParams = config.Params{
 	CheckPowHeaderHeight:        160340,
 	CRClaimDPOSNodeStartHeight:  751400,
 	NewP2PProtocolVersionHeight: 751400,
-	CheckRegisterDIDHeight:      0,
 	RewardMinerOnlyStartHeight:  410500,
+	RPCServiceLevel:             config.ConfigurationPermitted.String(),
 }
 
 // TestNetParams defines the network parameters for the test network.
-var TestNetParams = testNetParams(MainNetParams)
+var TestNetParams, TestNetDIDParams = testNetParams(MainNetParams, MainNetDIDParams)
 
 // RegNetParams defines the network parameters for the regression network.
-var RegNetParams = regNetParams(MainNetParams)
+var RegNetParams, RegNetDIDParams = regNetParams(MainNetParams, MainNetDIDParams)
 
 // testNetParams returns the network parameters for the test network.
-func testNetParams(cfg config.Params) config.Params {
+func testNetParams(cfg config.Params, didParams DIDParams) (config.Params, DIDParams) {
 	cfg.Name = "testnet"
 	cfg.Magic = 2018102
 	cfg.DefaultPort = 21608
@@ -141,13 +154,15 @@ func testNetParams(cfg config.Params) config.Params {
 	cfg.CheckPowHeaderHeight = 100000
 	cfg.CRClaimDPOSNodeStartHeight = 646900
 	cfg.NewP2PProtocolVersionHeight = 340000
-	cfg.CheckRegisterDIDHeight = 528000
 	cfg.RewardMinerOnlyStartHeight = 340000
-	return cfg
+
+	didParams.VeriﬁableCredentialHeight = 424240
+	didParams.CheckRegisterDIDHeight = 424240
+	return cfg, didParams
 }
 
 // regNetParams returns the network parameters for the regression network.
-func regNetParams(cfg config.Params) config.Params {
+func regNetParams(cfg config.Params, didParams DIDParams) (config.Params, DIDParams) {
 	cfg.Name = "regnet"
 	cfg.Magic = 2018202
 	cfg.DefaultPort = 22608
@@ -160,9 +175,11 @@ func regNetParams(cfg config.Params) config.Params {
 	cfg.CheckPowHeaderHeight = 42800
 	cfg.CRClaimDPOSNodeStartHeight = 532650
 	cfg.NewP2PProtocolVersionHeight = 203200
-	cfg.CheckRegisterDIDHeight = 528000
 	cfg.RewardMinerOnlyStartHeight = 205000
-	return cfg
+
+	didParams.VeriﬁableCredentialHeight = 280600
+	didParams.CheckRegisterDIDHeight = 280600
+	return cfg, didParams
 }
 
 // InstantBlock changes the given network parameter to instant block mode.

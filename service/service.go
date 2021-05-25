@@ -294,6 +294,10 @@ func (s *HttpService) GetIdentificationTxByIdAndPath(param http.Params) (interfa
 }
 
 func (s *HttpService) ListUnspent(param http.Params) (interface{}, error) {
+	if ok := service.CheckRPCServiceLevel(s.cfg.ConfigurationPermitted, config.WalletPermitted); ok != nil {
+		return nil, http.NewError(int(service.InvalidMethod), "requesting method if out of service level")
+	}
+
 	bestHeight := s.cfg.Store.GetHeight()
 	type UTXOInfo struct {
 		AssetId       string `json:"assetid"`
