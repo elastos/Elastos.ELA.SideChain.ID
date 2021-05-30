@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -46,6 +47,22 @@ var (
 	// The go source code version at build.
 	GoVersion string
 )
+
+type versionFlag struct {}
+func (versionFlag) IsBoolFlag() bool { return true }
+func (versionFlag) Get() interface{} { return nil }
+func (r *versionFlag) String() string { return Version }
+func (r *versionFlag) Set(s string) error {
+	println("did version", Version)
+	os.Exit(0)
+	return nil
+}
+
+func init() {
+	v := versionFlag{}
+	flag.Var(&v, "v", "print version and exit")
+	flag.Parse()
+}
 
 func main() {
 	// Use all processor cores.
