@@ -8,7 +8,9 @@ import (
 	"github.com/elastos/Elastos.ELA.SideChain/config"
 	"github.com/elastos/Elastos.ELA.SideChain/types"
 	"github.com/elastos/Elastos.ELA/common"
-	ela "github.com/elastos/Elastos.ELA/core/types"
+	"github.com/elastos/Elastos.ELA/core/contract/program"
+	elatx "github.com/elastos/Elastos.ELA/core/transaction"
+	elacommon "github.com/elastos/Elastos.ELA/core/types/common"
 	"github.com/elastos/Elastos.ELA/core/types/payload"
 )
 
@@ -56,11 +58,17 @@ var (
 			Height:     uint32(0),
 		},
 		SideAuxPow: auxpow.SideAuxPow{
-			SideAuxBlockTx: ela.Transaction{
-				TxType:         ela.SideChainPow,
-				PayloadVersion: payload.SideChainPowVersion,
-				Payload:        new(payload.SideChainPow),
-			},
+			SideAuxBlockTx: elatx.CreateTransaction(
+				0,
+				elacommon.SideChainPow,
+				payload.SideChainPowVersion,
+				new(payload.SideChainPow),
+				[]*elacommon.Attribute{},
+				[]*elacommon.Input{},
+				[]*elacommon.Output{},
+				0,
+				[]*program.Program{},
+			),
 		},
 	}
 
